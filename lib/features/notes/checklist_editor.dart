@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/theme/note_colors.dart';
 import '../../data/local/database.dart';
+import '../../shared/utils/snackbars.dart';
 import '../../shared/widgets/color_picker_sheet.dart';
+import '../categories/category_picker_sheet.dart';
 import 'notes_providers.dart';
 
 /// Editor for checklist notes: add-on-Enter, tap to toggle, drag to reorder,
@@ -187,6 +190,11 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor>
             PopupMenuButton<String>(
               onSelected: (v) => _onMenu(context, v, note),
               itemBuilder: (context) => [
+                const PopupMenuItem(value: 'share', child: Text('Share')),
+                const PopupMenuItem(
+                    value: 'duplicate', child: Text('Duplicate')),
+                const PopupMenuItem(
+                    value: 'move', child: Text('Move to category')),
                 PopupMenuItem(
                   value: 'archive',
                   child: Text(note.archived ? 'Unarchive' : 'Archive'),
@@ -295,6 +303,19 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor>
   Future<void> _onMenu(BuildContext context, String value, Note note) async {
     final repo = ref.read(notesRepositoryProvider);
     switch (value) {
+      case 'share':
+        _flushAllItems();
+        await _flushTitle();
+        final text = await repo.buildShareText(note.id);
+        if (text.isNotEmpty) await Share.share(text);
+      case 'duplicate':
+        _flushAllItems();
+        await _flushTitle();
+        await repo.duplicate(note.id);
+        if (context.mounted) showInfoSnackBar(context, 'Duplicated');
+      case 'move':
+        final choice = await showCategoryPicker(context);
+        if (choice != null) await repo.setCategory(note.id, choice.categoryId);
       case 'archive':
         await repo.setArchived(note.id, !note.archived);
         if (context.mounted && context.canPop()) context.pop();

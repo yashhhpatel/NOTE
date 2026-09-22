@@ -21,9 +21,52 @@ class NotesRepository {
 
   /// Watches the active notes for the home screen (not archived, not trashed),
   /// pinned first, then ordered by [sort]. Includes checklist progress.
-  Stream<List<NoteCard>> watchActive(NoteSort sort) {
+  ///
+  /// When [categoryId] is provided, only notes in that category are returned;
+  /// pass [uncategorized] to show only notes without a category.
+  Stream<List<NoteCard>> watchActive(
+    NoteSort sort, {
+    String? categoryId,
+    bool uncategorized = false,
+  }) {
     return _watchCards(
-      (notes) => notes.archived.equals(false) & notes.trashed.equals(false),
+      (notes) {
+        var filter = notes.archived.equals(false) & notes.trashed.equals(false);
+        if (uncategorized) {
+          filter = filter & notes.categoryId.isNull();
+        } else if (categoryId != null) {
+          filter = filter & notes.categoryId.equals(categoryId);
+        }
+        return filter;
+      },
+      sort,
+      pinnedFirst: true,
+    );
+  }
+
+  /// Instant local search across note title, content and checklist item text.
+  /// Only searches active (non-trashed, non-archived) notes.
+  Stream<List<NoteCard>> watchSearch(String query, NoteSort sort) {
+    final q = query.trim();
+    if (q.isEmpty) {
+      return Stream.value(const []);
+    }
+    final pattern = '%$q%';
+    return _watchCards(
+      (notes) {
+        final items = _db.checklistItems;
+        final matchesItem = existsQuery(
+          _db.select(items)
+            ..where((i) =>
+                i.noteId.equalsExp(notes.id) &
+                i.label.like(pattern)),
+        );
+        final matchesText =
+            notes.title.like(pattern) | notes.content.like(pattern);
+        return notes.archived.equals(false) &
+            notes.trashed.equals(false) &
+            (matchesText | matchesItem);
+      },
       sort,
       pinnedFirst: true,
     );
@@ -214,6 +257,68 @@ class NotesRepository {
         modifiedAt: Value(DateTime.now()),
       ),
     );
+  }
+
+  /// Assigns (or clears, when null) a note's category.
+  Future<void> setCategory(String id, String? categoryId) async {
+    await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
+      NotesCompanion(
+        categoryId: Value(categoryId),
+        modifiedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  // --- Batch operations for multi-select ------------------------------------
+
+  Future<void> setPinnedMany(Iterable<String> ids, bool pinned) =>
+      _writeMany(ids, NotesCompanion(pinned: Value(pinned)));
+
+  Future<void> setColorMany(Iterable<String> ids, int colorId) =>
+      _writeMany(ids, NotesCompanion(colorId: Value(colorId)));
+
+  Future<void> setArchivedMany(Iterable<String> ids, bool archived) =>
+      _writeMany(ids, NotesCompanion(archived: Value(archived)));
+
+  Future<void> setCategoryMany(Iterable<String> ids, String? categoryId) =>
+      _writeMany(ids, NotesCompanion(categoryId: Value(categoryId)));
+
+  Future<void> moveToTrashMany(Iterable<String> ids) => _writeMany(
+        ids,
+        NotesCompanion(
+          trashed: const Value(true),
+          trashedAt: Value(DateTime.now()),
+          pinned: const Value(false),
+        ),
+      );
+
+  Future<void> _writeMany(Iterable<String> ids, NotesCompanion patch) async {
+    final list = ids.toList();
+    if (list.isEmpty) return;
+    final withTime = patch.copyWith(modifiedAt: Value(DateTime.now()));
+    await _db.transaction(() async {
+      for (final id in list) {
+        await (_db.update(_db.notes)..where((t) => t.id.equals(id)))
+            .write(withTime);
+      }
+    });
+  }
+
+  /// Builds a plain-text representation of a note for sharing.
+  Future<String> buildShareText(String id) async {
+    final note = await getNote(id);
+    if (note == null) return '';
+    final buffer = StringBuffer();
+    if (note.title.trim().isNotEmpty) buffer.writeln(note.title.trim());
+    if (note.type == NoteType.checklist) {
+      final items = await watchItems(id).first;
+      for (final item in items) {
+        buffer.writeln('${item.checked ? '☑' : '☐'} ${item.label}');
+      }
+    } else if (note.content.trim().isNotEmpty) {
+      buffer.writeln(note.content.trim());
+    }
+    return buffer.toString().trim();
   }
 
   /// Creates an independent copy of a note (new id) including checklist items,

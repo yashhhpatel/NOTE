@@ -174,4 +174,95 @@ void main() {
       expect(card.progress, 0.5);
     });
   });
+
+  group('NotesRepository — search',
+      skip: sqlite3Available ? false : sqlite3MissingReason, () {
+    test('empty query returns nothing', () async {
+      await repo.createNote(type: NoteType.text);
+      expect(await repo.watchSearch('', NoteSort.modifiedDesc).first, isEmpty);
+    });
+
+    test('matches by title and content', () async {
+      final a = await repo.createNote(type: NoteType.text);
+      await repo.saveContent(a.id, title: 'Shopping', content: 'nothing');
+      final b = await repo.createNote(type: NoteType.text);
+      await repo.saveContent(b.id, title: 'x', content: 'go to the shop');
+      final c = await repo.createNote(type: NoteType.text);
+      await repo.saveContent(c.id, title: 'x', content: 'unrelated');
+
+      final ids = (await repo.watchSearch('shop', NoteSort.modifiedDesc).first)
+          .map((e) => e.note.id)
+          .toSet();
+      expect(ids, containsAll([a.id, b.id]));
+      expect(ids, isNot(contains(c.id)));
+    });
+
+    test('matches by checklist item text', () async {
+      final note = await repo.createNote(type: NoteType.checklist);
+      await repo.addItem(note.id, label: 'Buy milk');
+      final results =
+          await repo.watchSearch('milk', NoteSort.modifiedDesc).first;
+      expect(results.map((e) => e.note.id), contains(note.id));
+    });
+
+    test('excludes archived and trashed notes', () async {
+      final a = await repo.createNote(type: NoteType.text);
+      await repo.saveContent(a.id, title: 'apple', content: '');
+      await repo.setArchived(a.id, true);
+      final results =
+          await repo.watchSearch('apple', NoteSort.modifiedDesc).first;
+      expect(results, isEmpty);
+    });
+  });
+
+  group('NotesRepository — batch & category',
+      skip: sqlite3Available ? false : sqlite3MissingReason, () {
+    test('setPinnedMany pins all given notes', () async {
+      final a = await repo.createNote(type: NoteType.text);
+      final b = await repo.createNote(type: NoteType.text);
+      await repo.setPinnedMany([a.id, b.id], true);
+      expect((await repo.getNote(a.id))!.pinned, isTrue);
+      expect((await repo.getNote(b.id))!.pinned, isTrue);
+    });
+
+    test('moveToTrashMany trashes and unpins all', () async {
+      final a = await repo.createNote(type: NoteType.text);
+      await repo.setPinned(a.id, true);
+      final b = await repo.createNote(type: NoteType.text);
+      await repo.moveToTrashMany([a.id, b.id]);
+      expect((await repo.getNote(a.id))!.trashed, isTrue);
+      expect((await repo.getNote(a.id))!.pinned, isFalse);
+      expect((await repo.getNote(b.id))!.trashed, isTrue);
+    });
+
+    test('watchActive filters by category and uncategorized', () async {
+      final catNote = await repo.createNote(type: NoteType.text);
+      final plain = await repo.createNote(type: NoteType.text);
+      await repo.setCategory(catNote.id, 'cat-1');
+
+      final inCat = await repo
+          .watchActive(NoteSort.modifiedDesc, categoryId: 'cat-1')
+          .first;
+      expect(inCat.map((c) => c.note.id), [catNote.id]);
+
+      final unc = await repo
+          .watchActive(NoteSort.modifiedDesc, uncategorized: true)
+          .first;
+      expect(unc.map((c) => c.note.id), contains(plain.id));
+      expect(unc.map((c) => c.note.id), isNot(contains(catNote.id)));
+    });
+
+    test('buildShareText renders checklist with checkbox glyphs', () async {
+      final note = await repo.createNote(type: NoteType.checklist);
+      await repo.saveTitle(note.id, 'List');
+      final a = await repo.addItem(note.id, label: 'Done thing');
+      await repo.addItem(note.id, label: 'Todo thing');
+      await repo.setItemChecked(a.id, note.id, true);
+
+      final text = await repo.buildShareText(note.id);
+      expect(text, contains('List'));
+      expect(text, contains('☑ Done thing'));
+      expect(text, contains('☐ Todo thing'));
+    });
+  });
 }
