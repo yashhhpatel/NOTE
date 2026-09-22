@@ -78,6 +78,23 @@ class HomeDrawer extends ConsumerWidget {
             ),
             const Divider(),
             _DrawerTile(
+              icon: Icons.archive_outlined,
+              label: 'Archive',
+              onTap: () {
+                Navigator.pop(context);
+                context.push(Routes.archive);
+              },
+            ),
+            _DrawerTile(
+              icon: Icons.delete_outline,
+              label: 'Trash',
+              onTap: () {
+                Navigator.pop(context);
+                context.push(Routes.trash);
+              },
+            ),
+            const Divider(),
+            _DrawerTile(
               icon: Icons.settings_outlined,
               label: 'Settings',
               onTap: () {

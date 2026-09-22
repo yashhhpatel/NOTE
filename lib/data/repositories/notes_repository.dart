@@ -243,6 +243,43 @@ class NotesRepository {
     });
   }
 
+  /// Permanently deletes every trashed note. Used by "Empty trash".
+  Future<void> emptyTrash() async {
+    final trashed = await (_db.select(_db.notes)
+          ..where((t) => t.trashed.equals(true)))
+        .get();
+    await _db.transaction(() async {
+      for (final note in trashed) {
+        await _deleteCascade(note.id);
+      }
+    });
+  }
+
+  /// Auto-cleanup: permanently removes trashed notes older than [retention].
+  /// Returns the number of notes purged. Safe to call on every app start.
+  Future<int> purgeExpiredTrash(Duration retention) async {
+    final cutoff = DateTime.now().subtract(retention);
+    final expired = await (_db.select(_db.notes)
+          ..where((t) =>
+              t.trashed.equals(true) & t.trashedAt.isSmallerThanValue(cutoff)))
+        .get();
+    if (expired.isEmpty) return 0;
+    await _db.transaction(() async {
+      for (final note in expired) {
+        await _deleteCascade(note.id);
+      }
+    });
+    return expired.length;
+  }
+
+  Future<void> _deleteCascade(String id) async {
+    await (_db.delete(_db.checklistItems)..where((t) => t.noteId.equals(id)))
+        .go();
+    await (_db.delete(_db.attachments)..where((t) => t.noteId.equals(id))).go();
+    await (_db.delete(_db.reminders)..where((t) => t.noteId.equals(id))).go();
+    await (_db.delete(_db.notes)..where((t) => t.id.equals(id))).go();
+  }
+
   Future<void> _patch(
     String id, {
     bool? pinned,

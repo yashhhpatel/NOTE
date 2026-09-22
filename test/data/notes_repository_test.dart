@@ -265,4 +265,61 @@ void main() {
       expect(text, contains('☐ Todo thing'));
     });
   });
+
+  group('NotesRepository — trash lifecycle',
+      skip: sqlite3Available ? false : sqlite3MissingReason, () {
+    test('emptyTrash permanently deletes only trashed notes', () async {
+      final keep = await repo.createNote(type: NoteType.text);
+      final gone = await repo.createNote(type: NoteType.text);
+      await repo.moveToTrash(gone.id);
+
+      await repo.emptyTrash();
+
+      expect(await repo.getNote(gone.id), isNull);
+      expect(await repo.getNote(keep.id), isNotNull);
+    });
+
+    test('purgeExpiredTrash removes only notes trashed before the cutoff',
+        () async {
+      final old = await repo.createNote(type: NoteType.text);
+      final recent = await repo.createNote(type: NoteType.text);
+      // Trash both, then backdate one past the retention window.
+      await repo.moveToTrash(old.id);
+      await repo.moveToTrash(recent.id);
+      await db.customStatement(
+        "UPDATE notes SET trashed_at = ? WHERE id = ?",
+        [
+          DateTime.now()
+              .subtract(const Duration(days: 40))
+              .toIso8601String(),
+          old.id,
+        ],
+      );
+
+      final purged = await repo.purgeExpiredTrash(const Duration(days: 30));
+
+      expect(purged, 1);
+      expect(await repo.getNote(old.id), isNull);
+      expect(await repo.getNote(recent.id), isNotNull);
+    });
+
+    test('purgeExpiredTrash also removes checklist items of purged notes',
+        () async {
+      final note = await repo.createNote(type: NoteType.checklist);
+      await repo.addItem(note.id, label: 'x');
+      await repo.moveToTrash(note.id);
+      await db.customStatement(
+        "UPDATE notes SET trashed_at = ? WHERE id = ?",
+        [
+          DateTime.now()
+              .subtract(const Duration(days: 40))
+              .toIso8601String(),
+          note.id,
+        ],
+      );
+
+      await repo.purgeExpiredTrash(const Duration(days: 30));
+      expect(await repo.watchItems(note.id).first, isEmpty);
+    });
+  });
 }

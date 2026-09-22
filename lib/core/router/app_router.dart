@@ -1,11 +1,13 @@
 import 'package:go_router/go_router.dart';
 
+import '../../features/archive/archive_screen.dart';
 import '../../features/categories/categories_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/notes/checklist_editor.dart';
 import '../../features/notes/text_note_editor.dart';
 import '../../features/search/search_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/trash/trash_screen.dart';
 
 /// Route paths used across the app for type-safe navigation.
 class Routes {
@@ -14,6 +16,8 @@ class Routes {
   static const settings = '/settings';
   static const search = '/search';
   static const categories = '/categories';
+  static const archive = '/archive';
+  static const trash = '/trash';
 
   static String textNote(String id) => '/note/$id';
   static String checklist(String id) => '/checklist/$id';
@@ -39,6 +43,14 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'categories',
           builder: (context, state) => const CategoriesScreen(),
+        ),
+        GoRoute(
+          path: 'archive',
+          builder: (context, state) => const ArchiveScreen(),
+        ),
+        GoRoute(
+          path: 'trash',
+          builder: (context, state) => const TrashScreen(),
         ),
         GoRoute(
           path: 'note/:id',
