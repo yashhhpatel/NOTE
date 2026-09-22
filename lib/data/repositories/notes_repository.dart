@@ -296,6 +296,19 @@ class NotesRepository {
     );
   }
 
+  /// Sets (or clears) the denormalised next-reminder time on a note.
+  Future<void> setReminderAt(String id, DateTime? at) async {
+    await (_db.update(_db.notes)..where((t) => t.id.equals(id)))
+        .write(NotesCompanion(reminderAt: Value(at)));
+  }
+
+  /// Watches non-trashed notes that have a reminder set (for the calendar).
+  Stream<List<Note>> watchNotesWithReminders() {
+    return (_db.select(_db.notes)
+          ..where((t) => t.reminderAt.isNotNull() & t.trashed.equals(false)))
+        .watch();
+  }
+
   /// Assigns (or clears, when null) a note's category.
   Future<void> setCategory(String id, String? categoryId) async {
     await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(

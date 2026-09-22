@@ -34,6 +34,12 @@ dependencies:
   collection: ^1.18.0
   share_plus: ^9.0.0
 
+  # Local reminders & calendar (no backend)
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
+  flutter_timezone: ^3.0.1
+  table_calendar: ^3.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

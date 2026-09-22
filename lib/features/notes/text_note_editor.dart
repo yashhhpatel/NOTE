@@ -10,6 +10,7 @@ import '../../data/local/database.dart';
 import '../../shared/utils/snackbars.dart';
 import '../../shared/widgets/color_picker_sheet.dart';
 import '../categories/category_picker_sheet.dart';
+import '../reminders/reminder_sheet.dart';
 import 'notes_providers.dart';
 
 /// Full-screen editor for a text note with reliable autosave:
@@ -129,6 +130,25 @@ class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
               tooltip: note.pinned ? 'Unpin' : 'Pin',
               icon: Icon(note.pinned ? Icons.push_pin : Icons.push_pin_outlined),
               onPressed: () => repo.setPinned(note.id, !note.pinned),
+            ),
+            IconButton(
+              tooltip: 'Reminder',
+              icon: Icon(note.reminderAt != null
+                  ? Icons.notifications_active
+                  : Icons.notifications_none),
+              onPressed: () async {
+                await _flush();
+                if (!context.mounted) return;
+                await showReminderSheet(
+                  context,
+                  ref,
+                  noteId: note.id,
+                  noteTitle: _titleController.text.trim(),
+                  notePreview: _contentController.text.trim().isEmpty
+                      ? 'Note reminder'
+                      : _contentController.text.trim(),
+                );
+              },
             ),
             IconButton(
               tooltip: 'Colour',

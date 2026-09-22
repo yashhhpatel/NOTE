@@ -3,7 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/providers.dart';
+import 'core/services/reminder_service.dart';
 import 'features/notes/notes_providers.dart';
+import 'features/reminders/reminders_providers.dart';
 
 /// How long trashed notes are retained before automatic permanent deletion.
 const kTrashRetention = Duration(days: 30);
@@ -18,19 +21,30 @@ Future<void> main() async {
   ]);
 
   final container = ProviderContainer();
+
   // Best-effort trash auto-cleanup; never blocks startup on failure.
   try {
     await container
         .read(notesRepositoryProvider)
         .purgeExpiredTrash(kTrashRetention);
-  } catch (_) {
-    // Ignore — cleanup will retry next launch.
-  }
+  } catch (_) {}
+
+  // Initialise local notifications and re-arm any active reminders (survives
+  // reboots / process death).
+  String? initialNoteId;
+  try {
+    await ReminderService.instance.init();
+    await ReminderService.instance.rescheduleAll(
+      container.read(remindersRepositoryProvider),
+      container.read(databaseProvider),
+    );
+    initialNoteId = await ReminderService.instance.initialLaunchNoteId();
+  } catch (_) {}
 
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: const NoteflowApp(),
+      child: NoteflowApp(initialNoteId: initialNoteId),
     ),
   );
 }

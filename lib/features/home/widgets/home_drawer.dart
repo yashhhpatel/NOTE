@@ -78,6 +78,14 @@ class HomeDrawer extends ConsumerWidget {
             ),
             const Divider(),
             _DrawerTile(
+              icon: Icons.calendar_month_outlined,
+              label: 'Calendar',
+              onTap: () {
+                Navigator.pop(context);
+                context.push(Routes.calendar);
+              },
+            ),
+            _DrawerTile(
               icon: Icons.archive_outlined,
               label: 'Archive',
               onTap: () {
