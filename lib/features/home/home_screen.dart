@@ -12,6 +12,7 @@ import '../../shared/widgets/empty_state.dart';
 import '../categories/categories_providers.dart';
 import '../categories/category_picker_sheet.dart';
 import '../notes/notes_providers.dart';
+import '../security/security_providers.dart';
 import '../notes/widgets/note_card.dart';
 import '../settings/settings_providers.dart';
 import 'widgets/home_drawer.dart';
@@ -428,16 +429,25 @@ class _HomeTile extends ConsumerWidget {
     return NoteCardTile(
       card: card,
       selected: selected,
-      onTap: () {
+      onTap: () async {
         if (selecting) {
           ref.read(selectionProvider.notifier).toggle(card.note.id);
-        } else {
-          context.push(
-            card.isChecklist
-                ? Routes.checklist(card.note.id)
-                : Routes.textNote(card.note.id),
-          );
+          return;
         }
+        // Locked notes require biometric auth to open (when available).
+        if (card.note.locked) {
+          final service = ref.read(appLockServiceProvider);
+          if (await service.canUseBiometrics()) {
+            final ok = await service.authenticateBiometric();
+            if (!ok) return;
+          }
+        }
+        if (!context.mounted) return;
+        context.push(
+          card.isChecklist
+              ? Routes.checklist(card.note.id)
+              : Routes.textNote(card.note.id),
+        );
       },
       onLongPress: () =>
           ref.read(selectionProvider.notifier).toggle(card.note.id),

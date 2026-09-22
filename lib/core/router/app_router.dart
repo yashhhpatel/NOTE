@@ -7,6 +7,7 @@ import '../../features/home/home_screen.dart';
 import '../../features/notes/checklist_editor.dart';
 import '../../features/notes/text_note_editor.dart';
 import '../../features/search/search_screen.dart';
+import '../../features/security/security_settings_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/trash/trash_screen.dart';
 
@@ -20,6 +21,7 @@ class Routes {
   static const archive = '/archive';
   static const trash = '/trash';
   static const calendar = '/calendar';
+  static const security = '/security';
 
   static String textNote(String id) => '/note/$id';
   static String checklist(String id) => '/checklist/$id';
@@ -57,6 +59,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'calendar',
           builder: (context, state) => const CalendarScreen(),
+        ),
+        GoRoute(
+          path: 'security',
+          builder: (context, state) => const SecuritySettingsScreen(),
         ),
         GoRoute(
           path: 'note/:id',

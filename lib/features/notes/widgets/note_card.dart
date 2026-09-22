@@ -79,7 +79,17 @@ class NoteCardTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                if (card.isChecklist)
+                if (note.locked)
+                  Row(
+                    children: [
+                      Icon(Icons.lock_outline, size: 14, color: onBg.withOpacity(0.7)),
+                      const SizedBox(width: 6),
+                      Text('Locked',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: onBg.withOpacity(0.7))),
+                    ],
+                  )
+                else if (card.isChecklist)
                   _ChecklistPreview(card: card, onBg: onBg)
                 else if (note.content.trim().isNotEmpty)
                   Text(

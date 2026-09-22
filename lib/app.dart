@@ -9,6 +9,7 @@ import 'core/services/reminder_service.dart';
 import 'core/theme/app_theme.dart';
 import 'domain/entities/enums.dart';
 import 'features/notes/notes_providers.dart';
+import 'features/security/app_lock_gate.dart';
 import 'features/settings/settings_providers.dart';
 
 /// Root widget. Watches persisted preferences for theming and routes reminder
@@ -67,6 +68,8 @@ class _NoteflowAppState extends ConsumerState<NoteflowApp> {
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
       routerConfig: appRouter,
+      builder: (context, child) =>
+          AppLockGate(child: child ?? const SizedBox.shrink()),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

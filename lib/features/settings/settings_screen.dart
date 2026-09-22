@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/router/app_router.dart';
 import '../../domain/entities/enums.dart';
 import 'settings_providers.dart';
 
@@ -46,6 +47,15 @@ class SettingsScreen extends ConsumerWidget {
               value: AppThemeMode.dark,
               groupValue: prefs.themeMode,
               onChanged: (m) => _setTheme(ref, m),
+            ),
+            const Divider(),
+            const _SectionHeader('Security'),
+            ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: const Text('App lock & biometrics'),
+              subtitle: Text(prefs.appLockEnabled ? 'On' : 'Off'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push(Routes.security),
             ),
           ],
         ),

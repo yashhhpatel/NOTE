@@ -15,6 +15,9 @@ class AppPreferences {
     this.defaultColorId = 0,
     this.autosave = true,
     this.onboardingDone = false,
+    this.appLockEnabled = false,
+    this.biometricEnabled = false,
+    this.autoLockDelay = AutoLockDelay.immediately,
   });
 
   final AppThemeMode themeMode;
@@ -23,6 +26,16 @@ class AppPreferences {
   final int defaultColorId;
   final bool autosave;
   final bool onboardingDone;
+  final bool appLockEnabled;
+  final bool biometricEnabled;
+  final AutoLockDelay autoLockDelay;
+
+  Duration get autoLockDuration => switch (autoLockDelay) {
+        AutoLockDelay.immediately => Duration.zero,
+        AutoLockDelay.oneMinute => const Duration(minutes: 1),
+        AutoLockDelay.fiveMinutes => const Duration(minutes: 5),
+        AutoLockDelay.tenMinutes => const Duration(minutes: 10),
+      };
 
   ThemeMode get materialThemeMode => switch (themeMode) {
         AppThemeMode.system => ThemeMode.system,
@@ -37,6 +50,9 @@ class AppPreferences {
     int? defaultColorId,
     bool? autosave,
     bool? onboardingDone,
+    bool? appLockEnabled,
+    bool? biometricEnabled,
+    AutoLockDelay? autoLockDelay,
   }) {
     return AppPreferences(
       themeMode: themeMode ?? this.themeMode,
@@ -45,6 +61,9 @@ class AppPreferences {
       defaultColorId: defaultColorId ?? this.defaultColorId,
       autosave: autosave ?? this.autosave,
       onboardingDone: onboardingDone ?? this.onboardingDone,
+      appLockEnabled: appLockEnabled ?? this.appLockEnabled,
+      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+      autoLockDelay: autoLockDelay ?? this.autoLockDelay,
     );
   }
 }
@@ -68,6 +87,12 @@ class PreferencesNotifier extends AsyncNotifier<AppPreferences> {
       autosave: (map[SettingsRepository.kAutosave] ?? 'true') == 'true',
       onboardingDone:
           (map[SettingsRepository.kOnboardingDone] ?? 'false') == 'true',
+      appLockEnabled:
+          (map[SettingsRepository.kAppLockEnabled] ?? 'false') == 'true',
+      biometricEnabled:
+          (map[SettingsRepository.kBiometricEnabled] ?? 'false') == 'true',
+      autoLockDelay: _enum(map[SettingsRepository.kAutoLockDelay],
+          AutoLockDelay.values, AutoLockDelay.immediately),
     );
   }
 
@@ -117,6 +142,24 @@ class PreferencesNotifier extends AsyncNotifier<AppPreferences> {
         _current.copyWith(onboardingDone: true),
         SettingsRepository.kOnboardingDone,
         'true',
+      );
+
+  Future<void> setAppLockEnabled(bool value) => _update(
+        _current.copyWith(appLockEnabled: value),
+        SettingsRepository.kAppLockEnabled,
+        '$value',
+      );
+
+  Future<void> setBiometricEnabled(bool value) => _update(
+        _current.copyWith(biometricEnabled: value),
+        SettingsRepository.kBiometricEnabled,
+        '$value',
+      );
+
+  Future<void> setAutoLockDelay(AutoLockDelay delay) => _update(
+        _current.copyWith(autoLockDelay: delay),
+        SettingsRepository.kAutoLockDelay,
+        '${delay.index}',
       );
 
   AppPreferences get _current => state.value ?? const AppPreferences();

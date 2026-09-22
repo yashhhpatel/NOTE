@@ -207,6 +207,15 @@ class NotesRepository {
   Future<void> setArchived(String id, bool archived) =>
       _patch(id, archived: archived);
 
+  Future<void> setLocked(String id, bool locked) async {
+    await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
+      NotesCompanion(
+        locked: Value(locked),
+        modifiedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   /// Moves a note to trash (soft delete) and records the time for auto-cleanup.
   Future<void> moveToTrash(String id) async {
     await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
@@ -270,6 +279,19 @@ class NotesRepository {
       }
     });
     return expired.length;
+  }
+
+  /// Permanently deletes ALL note content (notes, items, reminders,
+  /// attachments, categories). Used only by the "forgot PIN" safe reset, which
+  /// trades access for data as the sole secure recovery path.
+  Future<void> deleteAllNoteData() async {
+    await _db.transaction(() async {
+      await _db.delete(_db.checklistItems).go();
+      await _db.delete(_db.attachments).go();
+      await _db.delete(_db.reminders).go();
+      await _db.delete(_db.notes).go();
+      await _db.delete(_db.categories).go();
+    });
   }
 
   Future<void> _deleteCascade(String id) async {

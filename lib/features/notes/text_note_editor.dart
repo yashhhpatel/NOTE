@@ -167,6 +167,10 @@ class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
                 const PopupMenuItem(
                     value: 'move', child: Text('Move to category')),
                 PopupMenuItem(
+                  value: 'lock',
+                  child: Text(note.locked ? 'Unlock' : 'Lock'),
+                ),
+                PopupMenuItem(
                   value: 'archive',
                   child: Text(note.archived ? 'Unarchive' : 'Archive'),
                 ),
@@ -229,6 +233,11 @@ class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
       case 'move':
         final choice = await showCategoryPicker(context);
         if (choice != null) await repo.setCategory(note.id, choice.categoryId);
+      case 'lock':
+        await repo.setLocked(note.id, !note.locked);
+        if (context.mounted) {
+          showInfoSnackBar(context, note.locked ? 'Unlocked' : 'Locked');
+        }
       case 'archive':
         await repo.setArchived(note.id, !note.archived);
         if (context.mounted && context.canPop()) context.pop();
