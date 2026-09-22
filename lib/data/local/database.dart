@@ -35,6 +35,13 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 1;
 
+  // Store timestamps as ISO-8601 text: millisecond precision (accurate
+  // modified-ordering) and timezone-safe. Chosen up front so no data migration
+  // is ever needed for it.
+  @override
+  DriftDatabaseOptions get options =>
+      const DriftDatabaseOptions(storeDateTimeAsText: true);
+
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {

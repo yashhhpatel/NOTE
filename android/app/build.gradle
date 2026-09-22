@@ -25,8 +25,11 @@ if (flutterVersionName == null) {
 
 android {
     namespace = "com.noteflow.noteflow"
-    // sqlite3_flutter_libs (and later plugins) require SDK 35.
-    compileSdk = 35
+    // compileSdk 34 matches Flutter 3.22's bundled AGP/aapt2. compileSdk 35's
+    // resource table is not parseable by this toolchain's aapt2, so we pin 34.
+    // (The sqlite3_flutter_libs "requires 35" note is advisory; it builds and
+    // runs correctly on 34.) Revisit when upgrading Flutter/AGP.
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

@@ -1,0 +1,318 @@
+import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../domain/entities/enums.dart';
+import '../../domain/entities/note_card.dart';
+import '../local/database.dart';
+
+/// All persistence operations for notes and their checklist items.
+///
+/// Exposes reactive streams (Drift `.watch()`) so the UI updates automatically
+/// when the underlying data changes, and imperative methods for mutations.
+class NotesRepository {
+  NotesRepository(this._db);
+
+  final AppDatabase _db;
+  static const _uuid = Uuid();
+
+  // ---------------------------------------------------------------------------
+  // Queries
+  // ---------------------------------------------------------------------------
+
+  /// Watches the active notes for the home screen (not archived, not trashed),
+  /// pinned first, then ordered by [sort]. Includes checklist progress.
+  Stream<List<NoteCard>> watchActive(NoteSort sort) {
+    return _watchCards(
+      (notes) => notes.archived.equals(false) & notes.trashed.equals(false),
+      sort,
+      pinnedFirst: true,
+    );
+  }
+
+  /// Watches archived (not trashed) notes.
+  Stream<List<NoteCard>> watchArchived(NoteSort sort) {
+    return _watchCards(
+      (notes) => notes.archived.equals(true) & notes.trashed.equals(false),
+      sort,
+      pinnedFirst: false,
+    );
+  }
+
+  /// Watches trashed notes, most recently trashed first.
+  Stream<List<NoteCard>> watchTrashed() {
+    return _watchCards(
+      (notes) => notes.trashed.equals(true),
+      NoteSort.modifiedDesc,
+      pinnedFirst: false,
+    );
+  }
+
+  Stream<List<NoteCard>> _watchCards(
+    Expression<bool> Function($NotesTable notes) filter,
+    NoteSort sort, {
+    required bool pinnedFirst,
+  }) {
+    final notes = _db.notes;
+    final items = _db.checklistItems;
+
+    final total = items.id.count();
+    final checked = items.id.count(filter: items.checked.equals(true));
+
+    final query = _db.select(notes).join([
+      leftOuterJoin(items, items.noteId.equalsExp(notes.id)),
+    ])
+      ..where(filter(notes))
+      ..groupBy([notes.id]);
+
+    query.addColumns([total, checked]);
+    query.orderBy(_orderTerms(notes, sort, pinnedFirst));
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        return NoteCard(
+          note: row.readTable(notes),
+          checklistTotal: row.read(total) ?? 0,
+          checklistChecked: row.read(checked) ?? 0,
+          previewItems: const [],
+        );
+      }).toList();
+    });
+  }
+
+  List<OrderingTerm> _orderTerms(
+    $NotesTable notes,
+    NoteSort sort,
+    bool pinnedFirst,
+  ) {
+    final terms = <OrderingTerm>[];
+    if (pinnedFirst) {
+      terms.add(OrderingTerm(expression: notes.pinned, mode: OrderingMode.desc));
+    }
+    switch (sort) {
+      case NoteSort.modifiedDesc:
+        terms.add(OrderingTerm.desc(notes.modifiedAt));
+      case NoteSort.modifiedAsc:
+        terms.add(OrderingTerm.asc(notes.modifiedAt));
+      case NoteSort.createdDesc:
+        terms.add(OrderingTerm.desc(notes.createdAt));
+      case NoteSort.createdAsc:
+        terms.add(OrderingTerm.asc(notes.createdAt));
+      case NoteSort.titleAsc:
+        terms.add(OrderingTerm.asc(notes.title));
+      case NoteSort.titleDesc:
+        terms.add(OrderingTerm.desc(notes.title));
+    }
+    return terms;
+  }
+
+  Future<Note?> getNote(String id) =>
+      (_db.select(_db.notes)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  Stream<Note?> watchNote(String id) =>
+      (_db.select(_db.notes)..where((t) => t.id.equals(id)))
+          .watchSingleOrNull();
+
+  // ---------------------------------------------------------------------------
+  // Note mutations
+  // ---------------------------------------------------------------------------
+
+  /// Creates an empty note of [type] and returns its persisted row.
+  Future<Note> createNote({
+    required NoteType type,
+    int colorId = 0,
+    String? categoryId,
+  }) async {
+    final now = DateTime.now();
+    final companion = NotesCompanion.insert(
+      id: _uuid.v4(),
+      type: Value(type),
+      colorId: Value(colorId),
+      categoryId: Value(categoryId),
+      createdAt: now,
+      modifiedAt: now,
+    );
+    return _db.into(_db.notes).insertReturning(companion);
+  }
+
+  /// Persists edits to a text note's title/content and bumps [modifiedAt].
+  Future<void> saveContent(
+    String id, {
+    required String title,
+    required String content,
+  }) async {
+    await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
+      NotesCompanion(
+        title: Value(title),
+        content: Value(content),
+        modifiedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Persists just the title (used by the checklist editor).
+  Future<void> saveTitle(String id, String title) async {
+    await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
+      NotesCompanion(
+        title: Value(title),
+        modifiedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> setPinned(String id, bool pinned) => _patch(id, pinned: pinned);
+  Future<void> setColor(String id, int colorId) => _patch(id, colorId: colorId);
+  Future<void> setArchived(String id, bool archived) =>
+      _patch(id, archived: archived);
+
+  /// Moves a note to trash (soft delete) and records the time for auto-cleanup.
+  Future<void> moveToTrash(String id) async {
+    await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
+      NotesCompanion(
+        trashed: const Value(true),
+        trashedAt: Value(DateTime.now()),
+        pinned: const Value(false),
+        modifiedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Restores a note from trash or archive back to the active list.
+  Future<void> restore(String id) async {
+    await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
+      NotesCompanion(
+        trashed: const Value(false),
+        trashedAt: const Value(null),
+        archived: const Value(false),
+        modifiedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Permanently deletes a note and cascades its checklist items/attachments.
+  Future<void> deleteForever(String id) async {
+    await _db.transaction(() async {
+      await (_db.delete(_db.checklistItems)..where((t) => t.noteId.equals(id)))
+          .go();
+      await (_db.delete(_db.attachments)..where((t) => t.noteId.equals(id)))
+          .go();
+      await (_db.delete(_db.reminders)..where((t) => t.noteId.equals(id))).go();
+      await (_db.delete(_db.notes)..where((t) => t.id.equals(id))).go();
+    });
+  }
+
+  Future<void> _patch(
+    String id, {
+    bool? pinned,
+    int? colorId,
+    bool? archived,
+  }) async {
+    await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
+      NotesCompanion(
+        pinned: pinned == null ? const Value.absent() : Value(pinned),
+        colorId: colorId == null ? const Value.absent() : Value(colorId),
+        archived: archived == null ? const Value.absent() : Value(archived),
+        modifiedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Creates an independent copy of a note (new id) including checklist items,
+  /// with fresh timestamps. Never reuses ids.
+  Future<Note> duplicate(String id) async {
+    return _db.transaction(() async {
+      final original = await getNote(id);
+      if (original == null) {
+        throw StateError('Cannot duplicate missing note $id');
+      }
+      final now = DateTime.now();
+      final newId = _uuid.v4();
+      final copy = original.copyWith(
+        id: newId,
+        title: original.title.isEmpty ? '' : '${original.title} (copy)',
+        pinned: false,
+        createdAt: now,
+        modifiedAt: now,
+      );
+      await _db.into(_db.notes).insert(copy);
+
+      final items = await (_db.select(_db.checklistItems)
+            ..where((t) => t.noteId.equals(id))
+            ..orderBy([(t) => OrderingTerm.asc(t.position)]))
+          .get();
+      for (final item in items) {
+        await _db.into(_db.checklistItems).insert(
+              item.copyWith(id: _uuid.v4(), noteId: newId, createdAt: now),
+            );
+      }
+      return copy;
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Checklist item mutations
+  // ---------------------------------------------------------------------------
+
+  Stream<List<ChecklistItem>> watchItems(String noteId) {
+    return (_db.select(_db.checklistItems)
+          ..where((t) => t.noteId.equals(noteId))
+          ..orderBy([(t) => OrderingTerm.asc(t.position)]))
+        .watch();
+  }
+
+  Future<ChecklistItem> addItem(String noteId, {String label = ''}) async {
+    final maxPos = await _maxPosition(noteId);
+    final item = ChecklistItemsCompanion.insert(
+      id: _uuid.v4(),
+      noteId: noteId,
+      label: Value(label),
+      position: Value(maxPos + 1),
+      createdAt: DateTime.now(),
+    );
+    await _touchNote(noteId);
+    return _db.into(_db.checklistItems).insertReturning(item);
+  }
+
+  Future<void> updateItemLabel(String itemId, String noteId, String label) async {
+    await (_db.update(_db.checklistItems)..where((t) => t.id.equals(itemId)))
+        .write(ChecklistItemsCompanion(label: Value(label)));
+    await _touchNote(noteId);
+  }
+
+  Future<void> setItemChecked(
+      String itemId, String noteId, bool checked) async {
+    await (_db.update(_db.checklistItems)..where((t) => t.id.equals(itemId)))
+        .write(ChecklistItemsCompanion(checked: Value(checked)));
+    await _touchNote(noteId);
+  }
+
+  Future<void> deleteItem(String itemId, String noteId) async {
+    await (_db.delete(_db.checklistItems)..where((t) => t.id.equals(itemId)))
+        .go();
+    await _touchNote(noteId);
+  }
+
+  /// Persists a new ordering by rewriting each item's position.
+  Future<void> reorderItems(String noteId, List<String> orderedIds) async {
+    await _db.transaction(() async {
+      for (var i = 0; i < orderedIds.length; i++) {
+        await (_db.update(_db.checklistItems)
+              ..where((t) => t.id.equals(orderedIds[i])))
+            .write(ChecklistItemsCompanion(position: Value(i)));
+      }
+    });
+    await _touchNote(noteId);
+  }
+
+  Future<int> _maxPosition(String noteId) async {
+    final items = await (_db.select(_db.checklistItems)
+          ..where((t) => t.noteId.equals(noteId)))
+        .get();
+    if (items.isEmpty) return -1;
+    return items.map((e) => e.position).reduce((a, b) => a > b ? a : b);
+  }
+
+  Future<void> _touchNote(String noteId) async {
+    await (_db.update(_db.notes)..where((t) => t.id.equals(noteId)))
+        .write(NotesCompanion(modifiedAt: Value(DateTime.now())));
+  }
+}
