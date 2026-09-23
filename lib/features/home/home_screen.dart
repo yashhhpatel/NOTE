@@ -9,6 +9,7 @@ import '../../domain/entities/note_card.dart';
 import '../../shared/utils/snackbars.dart';
 import '../../shared/widgets/color_picker_sheet.dart';
 import '../../shared/widgets/empty_state.dart';
+import '../ads/banner_ad_widget.dart';
 import '../categories/categories_providers.dart';
 import '../categories/category_picker_sheet.dart';
 import '../notes/notes_providers.dart';
@@ -37,21 +38,28 @@ class HomeScreen extends ConsumerWidget {
           ? _selectionAppBar(context, ref, selection, notesAsync.valueOrNull)
           : _defaultAppBar(context, ref, layout),
       drawer: const HomeDrawer(),
-      body: notesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Could not load notes: $e')),
-        data: (notes) {
-          if (notes.isEmpty) {
-            return const EmptyState(
-              icon: Icons.note_alt_outlined,
-              title: 'No notes yet',
-              message: 'Create your first note to get started.',
-            );
-          }
-          return layout == NoteLayout.grid
-              ? _NotesGrid(notes: notes, selection: selection)
-              : _NotesList(notes: notes, selection: selection);
-        },
+      body: Column(
+        children: [
+          Expanded(
+            child: notesAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Could not load notes: $e')),
+              data: (notes) {
+                if (notes.isEmpty) {
+                  return const EmptyState(
+                    icon: Icons.note_alt_outlined,
+                    title: 'No notes yet',
+                    message: 'Create your first note to get started.',
+                  );
+                }
+                return layout == NoteLayout.grid
+                    ? _NotesGrid(notes: notes, selection: selection)
+                    : _NotesList(notes: notes, selection: selection);
+              },
+            ),
+          ),
+          const BannerAdWidget(),
+        ],
       ),
       floatingActionButton: selecting
           ? null

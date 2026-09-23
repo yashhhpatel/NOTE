@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../billing/billing_controller.dart';
 import '../../categories/categories_providers.dart';
 import '../../notes/notes_providers.dart';
 
@@ -102,6 +103,15 @@ class HomeDrawer extends ConsumerWidget {
               },
             ),
             const Divider(),
+            if (!ref.watch(isPremiumProvider))
+              _DrawerTile(
+                icon: Icons.workspace_premium_outlined,
+                label: 'Remove ads',
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push(Routes.removeAds);
+                },
+              ),
             _DrawerTile(
               icon: Icons.settings_outlined,
               label: 'Settings',

@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/archive/archive_screen.dart';
 import '../../features/backup/backup_screen.dart';
+import '../../features/billing/remove_ads_screen.dart';
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/categories/categories_screen.dart';
 import '../../features/home/home_screen.dart';
@@ -24,6 +25,7 @@ class Routes {
   static const calendar = '/calendar';
   static const security = '/security';
   static const backup = '/backup';
+  static const removeAds = '/remove-ads';
 
   static String textNote(String id) => '/note/$id';
   static String checklist(String id) => '/checklist/$id';
@@ -69,6 +71,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'backup',
           builder: (context, state) => const BackupScreen(),
+        ),
+        GoRoute(
+          path: 'remove-ads',
+          builder: (context, state) => const RemoveAdsScreen(),
         ),
         GoRoute(
           path: 'note/:id',

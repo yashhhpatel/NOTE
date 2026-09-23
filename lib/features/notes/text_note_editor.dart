@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/services/ads_service.dart';
 import '../../core/theme/note_colors.dart';
 import '../../data/local/database.dart';
 import '../../shared/utils/snackbars.dart';
+import '../billing/billing_controller.dart';
 import '../../shared/widgets/color_picker_sheet.dart';
 import '../attachments/attachments_providers.dart';
 import '../attachments/attachments_section.dart';
@@ -129,6 +131,8 @@ class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
       onPopInvoked: (didPop) async {
         await _flush();
         await _discardIfEmpty();
+        AdsService.instance
+            .maybeShowOnTransition(isPremium: ref.read(isPremiumProvider));
       },
       child: Scaffold(
         backgroundColor: bg,

@@ -41,6 +41,12 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- AdMob application id. This is Google's official TEST app id; replace
+             with your real AdMob app id before a production release. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
+
         <!-- flutter_local_notifications: scheduled + boot + action receivers. -->
         <receiver
             android:exported="false"
