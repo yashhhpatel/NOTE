@@ -9,6 +9,8 @@ import '../../core/theme/note_colors.dart';
 import '../../data/local/database.dart';
 import '../../shared/utils/snackbars.dart';
 import '../../shared/widgets/color_picker_sheet.dart';
+import '../attachments/attachments_providers.dart';
+import '../attachments/attachments_section.dart';
 import '../categories/category_picker_sheet.dart';
 import '../reminders/reminder_sheet.dart';
 import 'notes_providers.dart';
@@ -72,10 +74,17 @@ class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
         );
   }
 
-  /// Deletes the note outright if the user left it completely empty.
+  /// Deletes the note outright if the user left it completely empty (no title,
+  /// no content and no attachments).
   Future<void> _discardIfEmpty() async {
-    if (_titleController.text.trim().isEmpty &&
-        _contentController.text.trim().isEmpty) {
+    if (_titleController.text.trim().isNotEmpty ||
+        _contentController.text.trim().isNotEmpty) {
+      return;
+    }
+    final attachments = await ref
+        .read(attachmentsRepositoryProvider)
+        .getForNote(widget.noteId);
+    if (attachments.isEmpty) {
       await ref.read(notesRepositoryProvider).deleteForever(widget.noteId);
     }
   }
@@ -197,17 +206,26 @@ class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
                   maxLines: null,
                 ),
                 Expanded(
-                  child: TextField(
-                    controller: _contentController,
-                    onChanged: (_) => _onChanged(),
-                    textCapitalization: TextCapitalization.sentences,
-                    keyboardType: TextInputType.multiline,
-                    maxLines: null,
-                    expands: true,
-                    textAlignVertical: TextAlignVertical.top,
-                    decoration: const InputDecoration(
-                      hintText: 'Start writing…',
-                      border: InputBorder.none,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _contentController,
+                          onChanged: (_) => _onChanged(),
+                          textCapitalization: TextCapitalization.sentences,
+                          keyboardType: TextInputType.multiline,
+                          maxLines: null,
+                          minLines: 6,
+                          decoration: const InputDecoration(
+                            hintText: 'Start writing…',
+                            border: InputBorder.none,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        AttachmentsSection(noteId: widget.noteId),
+                        const SizedBox(height: 24),
+                      ],
                     ),
                   ),
                 ),

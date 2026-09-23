@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../../features/archive/archive_screen.dart';
+import '../../features/backup/backup_screen.dart';
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/categories/categories_screen.dart';
 import '../../features/home/home_screen.dart';
@@ -22,6 +23,7 @@ class Routes {
   static const trash = '/trash';
   static const calendar = '/calendar';
   static const security = '/security';
+  static const backup = '/backup';
 
   static String textNote(String id) => '/note/$id';
   static String checklist(String id) => '/checklist/$id';
@@ -63,6 +65,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'security',
           builder: (context, state) => const SecuritySettingsScreen(),
+        ),
+        GoRoute(
+          path: 'backup',
+          builder: (context, state) => const BackupScreen(),
         ),
         GoRoute(
           path: 'note/:id',
