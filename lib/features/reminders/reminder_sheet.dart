@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../data/local/database.dart';
 import '../../domain/entities/enums.dart';
 import '../../shared/utils/snackbars.dart';
+import '../settings/settings_providers.dart';
 import 'reminders_providers.dart';
 
 /// Opens the reminder editor for a note. Lets the user pick a date, time and
@@ -184,8 +185,14 @@ class _ReminderSheetState extends ConsumerState<_ReminderSheet> {
           customIntervalDays:
               _repeat == ReminderRepeat.custom ? _customDays : null,
         );
-    await service.schedule(reminder,
-        noteTitle: widget.noteTitle, notePreview: widget.notePreview);
+    final prefs = ref.read(preferencesProvider).valueOrNull;
+    await service.schedule(
+      reminder,
+      noteTitle: widget.noteTitle,
+      notePreview: widget.notePreview,
+      enableSound: prefs?.notifSound ?? true,
+      enableVibration: prefs?.notifVibration ?? true,
+    );
     if (mounted) {
       Navigator.pop(context);
       showInfoSnackBar(context, 'Reminder set');

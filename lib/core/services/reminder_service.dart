@@ -95,6 +95,8 @@ class ReminderService {
     Reminder reminder, {
     required String noteTitle,
     required String notePreview,
+    bool enableSound = true,
+    bool enableVibration = true,
   }) async {
     final next = ReminderScheduling.nextOccurrence(
       base: reminder.triggerAt,
@@ -113,14 +115,16 @@ class ReminderService {
     });
     final title = noteTitle.trim().isEmpty ? 'Reminder' : noteTitle.trim();
 
-    const androidDetails = AndroidNotificationDetails(
+    final androidDetails = AndroidNotificationDetails(
       _channelId,
       _channelName,
       channelDescription: _channelDescription,
       importance: Importance.high,
       priority: Priority.high,
       category: AndroidNotificationCategory.reminder,
-      actions: [
+      playSound: enableSound,
+      enableVibration: enableVibration,
+      actions: const [
         AndroidNotificationAction(ReminderActions.complete, 'Complete',
             showsUserInterface: false, cancelNotification: true),
         AndroidNotificationAction(ReminderActions.snooze, 'Snooze',
@@ -133,7 +137,7 @@ class ReminderService {
       title,
       notePreview,
       tz.TZDateTime.from(next, tz.local),
-      const NotificationDetails(android: androidDetails),
+      NotificationDetails(android: androidDetails),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,

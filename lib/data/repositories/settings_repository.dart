@@ -15,6 +15,8 @@ class SettingsRepository {
   static const kDefaultColorId = 'default_color_id';
   static const kAutosave = 'autosave';
   static const kOnboardingDone = 'onboarding_done';
+  static const kDefaultNoteType = 'default_note_type';
+  static const kMoveCheckedToBottom = 'move_checked_to_bottom';
   static const kNotifSound = 'notif_sound';
   static const kNotifVibration = 'notif_vibration';
   static const kAppLockEnabled = 'app_lock_enabled';

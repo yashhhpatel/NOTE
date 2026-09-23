@@ -15,6 +15,7 @@ import '../attachments/attachments_providers.dart';
 import '../attachments/attachments_section.dart';
 import '../categories/category_picker_sheet.dart';
 import '../reminders/reminder_sheet.dart';
+import '../settings/settings_providers.dart';
 import 'notes_providers.dart';
 
 /// Full-screen editor for a text note with reliable autosave:
@@ -62,6 +63,13 @@ class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
 
   void _onChanged() {
     _dirty = true;
+    // When autosave-while-typing is off, we still flush on leave/background;
+    // we just skip the periodic debounce save.
+    final autosave = ref.read(preferencesProvider).maybeWhen(
+          data: (p) => p.autosave,
+          orElse: () => true,
+        );
+    if (!autosave) return;
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 600), _flush);
   }

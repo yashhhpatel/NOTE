@@ -13,6 +13,7 @@ import '../billing/billing_controller.dart';
 import '../../shared/widgets/color_picker_sheet.dart';
 import '../categories/category_picker_sheet.dart';
 import '../reminders/reminder_sheet.dart';
+import '../settings/settings_providers.dart';
 import 'notes_providers.dart';
 
 /// Editor for checklist notes: add-on-Enter, tap to toggle, drag to reorder,
@@ -257,7 +258,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor>
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(child: Text('Error: $e')),
-                  data: (items) => _buildList(context, items),
+                  data: (items) => _buildList(context, _ordered(items)),
                 ),
               ),
             ],
@@ -270,6 +271,19 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor>
         ),
       ),
     );
+  }
+
+  /// Optionally moves completed items to the bottom (a stable sort preserving
+  /// position order within each group), per the user's preference.
+  List<ChecklistItem> _ordered(List<ChecklistItem> items) {
+    final moveToBottom = ref.watch(preferencesProvider).maybeWhen(
+          data: (p) => p.moveCheckedToBottom,
+          orElse: () => false,
+        );
+    if (!moveToBottom) return items;
+    final unchecked = items.where((i) => !i.checked).toList();
+    final checked = items.where((i) => i.checked).toList();
+    return [...unchecked, ...checked];
   }
 
   Widget _buildList(BuildContext context, List<ChecklistItem> items) {

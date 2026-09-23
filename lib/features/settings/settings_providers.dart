@@ -18,6 +18,10 @@ class AppPreferences {
     this.appLockEnabled = false,
     this.biometricEnabled = false,
     this.autoLockDelay = AutoLockDelay.immediately,
+    this.defaultNoteType = NoteType.text,
+    this.moveCheckedToBottom = false,
+    this.notifSound = true,
+    this.notifVibration = true,
   });
 
   final AppThemeMode themeMode;
@@ -29,6 +33,10 @@ class AppPreferences {
   final bool appLockEnabled;
   final bool biometricEnabled;
   final AutoLockDelay autoLockDelay;
+  final NoteType defaultNoteType;
+  final bool moveCheckedToBottom;
+  final bool notifSound;
+  final bool notifVibration;
 
   Duration get autoLockDuration => switch (autoLockDelay) {
         AutoLockDelay.immediately => Duration.zero,
@@ -53,6 +61,10 @@ class AppPreferences {
     bool? appLockEnabled,
     bool? biometricEnabled,
     AutoLockDelay? autoLockDelay,
+    NoteType? defaultNoteType,
+    bool? moveCheckedToBottom,
+    bool? notifSound,
+    bool? notifVibration,
   }) {
     return AppPreferences(
       themeMode: themeMode ?? this.themeMode,
@@ -64,6 +76,10 @@ class AppPreferences {
       appLockEnabled: appLockEnabled ?? this.appLockEnabled,
       biometricEnabled: biometricEnabled ?? this.biometricEnabled,
       autoLockDelay: autoLockDelay ?? this.autoLockDelay,
+      defaultNoteType: defaultNoteType ?? this.defaultNoteType,
+      moveCheckedToBottom: moveCheckedToBottom ?? this.moveCheckedToBottom,
+      notifSound: notifSound ?? this.notifSound,
+      notifVibration: notifVibration ?? this.notifVibration,
     );
   }
 }
@@ -93,6 +109,13 @@ class PreferencesNotifier extends AsyncNotifier<AppPreferences> {
           (map[SettingsRepository.kBiometricEnabled] ?? 'false') == 'true',
       autoLockDelay: _enum(map[SettingsRepository.kAutoLockDelay],
           AutoLockDelay.values, AutoLockDelay.immediately),
+      defaultNoteType: _enum(map[SettingsRepository.kDefaultNoteType],
+          NoteType.values, NoteType.text),
+      moveCheckedToBottom:
+          (map[SettingsRepository.kMoveCheckedToBottom] ?? 'false') == 'true',
+      notifSound: (map[SettingsRepository.kNotifSound] ?? 'true') == 'true',
+      notifVibration:
+          (map[SettingsRepository.kNotifVibration] ?? 'true') == 'true',
     );
   }
 
@@ -161,6 +184,32 @@ class PreferencesNotifier extends AsyncNotifier<AppPreferences> {
         SettingsRepository.kAutoLockDelay,
         '${delay.index}',
       );
+
+  Future<void> setDefaultNoteType(NoteType type) => _update(
+        _current.copyWith(defaultNoteType: type),
+        SettingsRepository.kDefaultNoteType,
+        '${type.index}',
+      );
+
+  Future<void> setMoveCheckedToBottom(bool value) => _update(
+        _current.copyWith(moveCheckedToBottom: value),
+        SettingsRepository.kMoveCheckedToBottom,
+        '$value',
+      );
+
+  Future<void> setNotifSound(bool value) => _update(
+        _current.copyWith(notifSound: value),
+        SettingsRepository.kNotifSound,
+        '$value',
+      );
+
+  Future<void> setNotifVibration(bool value) => _update(
+        _current.copyWith(notifVibration: value),
+        SettingsRepository.kNotifVibration,
+        '$value',
+      );
+
+  Future<void> setDefaultColor(int id) => setDefaultColorId(id);
 
   AppPreferences get _current => state.value ?? const AppPreferences();
 }
