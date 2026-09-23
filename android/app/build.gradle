@@ -25,18 +25,19 @@ if (flutterVersionName == null) {
 
 android {
     namespace = "com.noteflow.noteflow"
-    // compileSdk 34 matches Flutter 3.22's bundled AGP/aapt2. compileSdk 35's
-    // resource table is not parseable by this toolchain's aapt2, so we pin 34.
-    // (The sqlite3_flutter_libs "requires 35" note is advisory; it builds and
-    // runs correctly on 34.) Revisit when upgrading Flutter/AGP.
-    compileSdk = 34
+    // AGP 8's aapt2 parses android-35 correctly, satisfying sqlite3_flutter_libs.
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         // Required by flutter_local_notifications for java.time on older APIs.
         coreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
     }
 
     defaultConfig {
