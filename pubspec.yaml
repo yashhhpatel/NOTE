@@ -74,5 +74,12 @@ dev_dependencies:
   drift_dev: ^2.18.0
   build_runner: ^2.4.11
 
+# The `record` plugin published an inconsistent set where record_linux 0.7.2
+# does not implement record_platform_interface 1.3.0's startStream, breaking
+# compilation. Pin the interface to the version record_linux implements.
+# (Android-only app; desktop record backends are unused.)
+dependency_overrides:
+  record_platform_interface: 1.2.0
+
 flutter:
   uses-material-design: true
