@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'core/providers.dart';
 import 'core/services/ads_service.dart';
+import 'core/services/home_widget_service.dart';
 import 'core/services/reminder_service.dart';
 import 'features/notes/notes_providers.dart';
 import 'features/reminders/reminders_providers.dart';
@@ -45,6 +46,12 @@ Future<void> main() async {
   // Initialise AdMob (best-effort; the app is fully usable if ads fail).
   try {
     await AdsService.instance.init();
+  } catch (_) {}
+
+  // Home-screen widget (best-effort; app shortcuts init in NoteflowApp's
+  // initState so a cold start via shortcut is caught).
+  try {
+    await HomeWidgetService.instance.init();
   } catch (_) {}
 
   runApp(
