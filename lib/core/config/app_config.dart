@@ -13,7 +13,8 @@ class AppConfig {
   static const String contactName = 'Aakash Mangukiya';
 
   /// Configure these before release (host your own pages).
-  static const String privacyPolicyUrl = 'https://noteflow.app/privacy';
+  static const String privacyPolicyUrl =
+      'https://api.buildprivacypolicy.com/policy/87a533cd-9e4a-4938-bd90-15c582734a7f';
   static const String termsUrl = 'https://noteflow.app/terms';
 
   /// Play Store listing (used by Rate / Share).
