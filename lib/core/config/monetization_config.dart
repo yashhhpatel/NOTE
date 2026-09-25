@@ -34,4 +34,11 @@ class MonetizationConfig {
 
   /// Display price shown as a fallback before Play returns the localized price.
   static const String removeAdsFallbackPrice = '₹2,999';
+
+  /// Test device IDs for forcing the UMP (consent) debug geography — e.g. to
+  /// test the EEA consent form on a device/emulator that isn't actually in
+  /// the EEA. Find your device's id in logcat ("Use new
+  /// ConsentDebugSettings.Builder().addTestDeviceHashedId(...)"). Leave empty
+  /// for production; only used when [useTestAds] is true.
+  static const List<String> consentTestDeviceIds = [];
 }

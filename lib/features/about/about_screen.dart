@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/services/consent_service.dart';
 import '../../shared/utils/snackbars.dart';
 
 /// About screen: version, legal links, contact, rate and share.
@@ -56,6 +57,22 @@ class AboutScreen extends StatelessWidget {
             title: const Text('Terms of Use'),
             onTap: () => _openUrl(context, AppConfig.termsUrl),
           ),
+          FutureBuilder<bool>(
+            future: ConsentService.instance.isPrivacyOptionsRequired(),
+            builder: (context, snapshot) {
+              if (snapshot.data != true) return const SizedBox.shrink();
+              return ListTile(
+                leading: const Icon(Icons.fact_check_outlined),
+                title: const Text('Manage ad consent'),
+                onTap: () async {
+                  final ok = await ConsentService.instance.showPrivacyOptionsForm();
+                  if (!ok && context.mounted) {
+                    showInfoSnackBar(context, 'Could not open consent options.');
+                  }
+                },
+              );
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.mail_outline),
             title: const Text('Contact Us'),
@@ -80,7 +97,9 @@ class AboutScreen extends StatelessWidget {
             child: Text(
               'Noteflow keeps your notes on your device. Note content is never '
               'uploaded to our servers. Third-party services used: Google AdMob '
-              '(ads) and Google Play Billing (Remove Ads purchase).',
+              '(ads) and Google Play Billing (Remove Ads purchase). In the EU, '
+              'UK and similar regions, a consent form may appear before ads '
+              'load; you can change your choice anytime above.',
               style: TextStyle(fontSize: 12),
             ),
           ),

@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../domain/entities/enums.dart';
 import '../../domain/entities/note_card.dart';
 import '../../domain/habit_tracking.dart';
+import '../../domain/note_cleanup.dart';
 import '../../domain/note_templates.dart';
 import '../local/database.dart';
 
@@ -308,6 +309,60 @@ class NotesRepository {
       }
     });
     return expired.length;
+  }
+
+  /// Auto-cleanup: permanently removes notes left behind by an abnormal app
+  /// exit (crash, ANR, OS kill) before the editor's own discard-if-empty
+  /// cleanup could run on a normal back/pop. Only ever removes notes with no
+  /// title, no content, no checklist items, no attachments, and no other sign
+  /// of intentional user action (pin/lock/reminder/category/habit mode) — see
+  /// [NoteCleanup]. Safe to call on every app start: since this runs before
+  /// any note in the current session could exist, every candidate found is
+  /// guaranteed to be orphaned from a previous session.
+  Future<int> purgeOrphanedEmptyNotes() async {
+    final candidates = await (_db.select(_db.notes)
+          ..where((t) =>
+              t.title.equals('') &
+              t.content.equals('') &
+              t.trashed.equals(false) &
+              t.pinned.equals(false) &
+              t.locked.equals(false) &
+              t.habitMode.equals(false) &
+              t.reminderAt.isNull() &
+              t.categoryId.isNull()))
+        .get();
+    if (candidates.isEmpty) return 0;
+
+    var purged = 0;
+    for (final note in candidates) {
+      if (!NoteCleanup.isPotentiallyOrphaned(
+        title: note.title,
+        content: note.content,
+        pinned: note.pinned,
+        locked: note.locked,
+        habitMode: note.habitMode,
+        reminderAt: note.reminderAt,
+        categoryId: note.categoryId,
+      )) {
+        continue; // Defensive; the SQL filter above already covers this.
+      }
+      if (note.type == NoteType.checklist) {
+        final items = await (_db.select(_db.checklistItems)
+              ..where((t) => t.noteId.equals(note.id)))
+            .get();
+        if (!NoteCleanup.checklistHasNoContent(items.map((i) => i.label))) {
+          continue;
+        }
+      }
+      final attachments = await (_db.select(_db.attachments)
+            ..where((t) => t.noteId.equals(note.id)))
+          .get();
+      if (attachments.isNotEmpty) continue;
+
+      await _deleteCascade(note.id);
+      purged++;
+    }
+    return purged;
   }
 
   /// Permanently deletes ALL note content (notes, items, reminders,

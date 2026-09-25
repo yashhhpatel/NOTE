@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'core/providers.dart';
-import 'core/services/ads_service.dart';
+import 'core/services/consent_service.dart';
 import 'core/services/home_widget_service.dart';
 import 'core/services/reminder_service.dart';
 import 'features/notes/notes_providers.dart';
@@ -31,6 +31,12 @@ Future<void> main() async {
     await container
         .read(notesRepositoryProvider)
         .purgeExpiredTrash(kTrashRetention);
+  } catch (_) {}
+
+  // Best-effort cleanup of empty notes orphaned by an abnormal exit (crash,
+  // ANR, OS kill) before their own discard-if-empty logic could run.
+  try {
+    await container.read(notesRepositoryProvider).purgeOrphanedEmptyNotes();
   } catch (_) {}
 
   // Initialise local notifications and re-arm any active reminders (survives
@@ -61,8 +67,11 @@ Future<void> main() async {
 }
 
 Future<void> _initNonCritical() async {
+  // Runs the UMP consent flow (if required) and then initialises AdMob —
+  // never awaited on the startup path; see ConsentService for the timeout/
+  // fallback guarantees that keep this from ever blocking or hanging.
   try {
-    await AdsService.instance.init();
+    await ConsentService.instance.requestConsentAndInitAds();
   } catch (_) {}
   try {
     await HomeWidgetService.instance.init();
