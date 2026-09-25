@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,7 +34,8 @@ Future<void> main() async {
   } catch (_) {}
 
   // Initialise local notifications and re-arm any active reminders (survives
-  // reboots / process death).
+  // reboots / process death). Kept on the startup path since a reminder tap
+  // needs initialLaunchNoteId before the first frame.
   String? initialNoteId;
   try {
     await ReminderService.instance.init();
@@ -43,21 +46,25 @@ Future<void> main() async {
     initialNoteId = await ReminderService.instance.initialLaunchNoteId();
   } catch (_) {}
 
-  // Initialise AdMob (best-effort; the app is fully usable if ads fail).
-  try {
-    await AdsService.instance.init();
-  } catch (_) {}
-
-  // Home-screen widget (best-effort; app shortcuts init in NoteflowApp's
-  // initState so a cold start via shortcut is caught).
-  try {
-    await HomeWidgetService.instance.init();
-  } catch (_) {}
-
   runApp(
     UncontrolledProviderScope(
       container: container,
       child: NoteflowApp(initialNoteId: initialNoteId),
     ),
   );
+
+  // AdMob and the home-screen widget are non-critical: never let a slow or
+  // misbehaving third-party SDK (observed: Google Play Services' transport
+  // JobScheduler can stall on devices/emulators with outdated Play Services)
+  // delay first paint or block the UI thread. Fired after runApp, not awaited.
+  unawaited(_initNonCritical());
+}
+
+Future<void> _initNonCritical() async {
+  try {
+    await AdsService.instance.init();
+  } catch (_) {}
+  try {
+    await HomeWidgetService.instance.init();
+  } catch (_) {}
 }
