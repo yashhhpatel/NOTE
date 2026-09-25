@@ -168,6 +168,20 @@ class _ChecklistPreview extends StatelessWidget {
             ),
           ],
         ),
+        if (card.note.habitMode && card.note.habitStreak > 0) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(Icons.local_fire_department,
+                  size: 13, color: Colors.deepOrange),
+              const SizedBox(width: 3),
+              Text(
+                '${card.note.habitStreak}-day streak',
+                style: theme.textTheme.labelSmall?.copyWith(color: onBg),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

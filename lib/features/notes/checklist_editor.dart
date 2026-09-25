@@ -37,6 +37,7 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor>
   bool _titleDirty = false;
   String? _focusItemId;
   List<ChecklistItem> _lastItems = const [];
+  bool _habitResetChecked = false;
 
   @override
   void initState() {
@@ -166,6 +167,14 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor>
     final repo = ref.read(notesRepositoryProvider);
     final itemsAsync = ref.watch(checklistItemsProvider(widget.noteId));
 
+    // Once per open: if a new day has started, auto-reset a habit checklist.
+    if (note.habitMode && !_habitResetChecked) {
+      _habitResetChecked = true;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => repo.checkHabitReset(widget.noteId),
+      );
+    }
+
     return PopScope(
       canPop: true,
       onPopInvoked: (didPop) async {
@@ -223,6 +232,12 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor>
                   child: Text(note.locked ? 'Unlock' : 'Lock'),
                 ),
                 PopupMenuItem(
+                  value: 'habit',
+                  child: Text(note.habitMode
+                      ? 'Turn off habit tracking'
+                      : 'Turn on habit tracking'),
+                ),
+                PopupMenuItem(
                   value: 'archive',
                   child: Text(note.archived ? 'Unarchive' : 'Archive'),
                 ),
@@ -251,7 +266,11 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor>
               itemsAsync.when(
                 loading: () => const SizedBox.shrink(),
                 error: (e, _) => const SizedBox.shrink(),
-                data: (items) => _ProgressBar(items: items),
+                data: (items) => _ProgressBar(
+                  items: items,
+                  habitMode: note.habitMode,
+                  habitStreak: note.habitStreak,
+                ),
               ),
               Expanded(
                 child: itemsAsync.when(
@@ -361,6 +380,16 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor>
         if (context.mounted) {
           showInfoSnackBar(context, note.locked ? 'Unlocked' : 'Locked');
         }
+      case 'habit':
+        await repo.setHabitMode(note.id, !note.habitMode);
+        if (context.mounted) {
+          showInfoSnackBar(
+            context,
+            note.habitMode
+                ? 'Habit tracking turned off'
+                : 'Habit tracking turned on — items reset daily',
+          );
+        }
       case 'archive':
         await repo.setArchived(note.id, !note.archived);
         if (context.mounted && context.canPop()) context.pop();
@@ -372,8 +401,14 @@ class _ChecklistEditorState extends ConsumerState<ChecklistEditor>
 }
 
 class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.items});
+  const _ProgressBar({
+    required this.items,
+    this.habitMode = false,
+    this.habitStreak = 0,
+  });
   final List<ChecklistItem> items;
+  final bool habitMode;
+  final int habitStreak;
 
   @override
   Widget build(BuildContext context) {
@@ -382,20 +417,42 @@ class _ProgressBar extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$done/${items.length} completed',
-              style: theme.textTheme.labelMedium),
-          const SizedBox(width: 12),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: items.isEmpty ? 0 : done / items.length,
-                minHeight: 6,
+          Row(
+            children: [
+              Text('$done/${items.length} completed',
+                  style: theme.textTheme.labelMedium),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: items.isEmpty ? 0 : done / items.length,
+                    minHeight: 6,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
+          if (habitMode) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.local_fire_department,
+                    size: 16, color: Colors.deepOrange),
+                const SizedBox(width: 4),
+                Text(
+                  habitStreak > 0
+                      ? '$habitStreak-day streak · resets daily'
+                      : 'Habit checklist · resets daily',
+                  style: theme.textTheme.labelSmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

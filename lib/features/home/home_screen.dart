@@ -13,6 +13,7 @@ import '../ads/banner_ad_widget.dart';
 import '../categories/categories_providers.dart';
 import '../categories/category_picker_sheet.dart';
 import '../notes/notes_providers.dart';
+import '../notes/template_picker_sheet.dart';
 import '../security/security_providers.dart';
 import '../notes/widgets/note_card.dart';
 import '../settings/settings_providers.dart';
@@ -224,7 +225,7 @@ class HomeScreen extends ConsumerWidget {
   // --- Create / sort ---------------------------------------------------------
 
   Future<void> _showCreateMenu(BuildContext context, WidgetRef ref) async {
-    final choice = await showModalBottomSheet<NoteType>(
+    final choice = await showModalBottomSheet<_CreateChoice>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -234,12 +235,17 @@ class HomeScreen extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.notes),
               title: const Text('Text note'),
-              onTap: () => Navigator.pop(context, NoteType.text),
+              onTap: () => Navigator.pop(context, _CreateChoice.text),
             ),
             ListTile(
               leading: const Icon(Icons.checklist),
               title: const Text('Checklist'),
-              onTap: () => Navigator.pop(context, NoteType.checklist),
+              onTap: () => Navigator.pop(context, _CreateChoice.checklist),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard_customize_outlined),
+              title: const Text('From template'),
+              onTap: () => Navigator.pop(context, _CreateChoice.template),
             ),
           ],
         ),
@@ -249,14 +255,36 @@ class HomeScreen extends ConsumerWidget {
 
     final prefs = ref.read(preferencesProvider).valueOrNull;
     final filter = ref.read(homeFilterProvider);
-    final note = await ref.read(notesRepositoryProvider).createNote(
-          type: choice,
-          colorId: prefs?.defaultColorId ?? 0,
-          categoryId: filter.categoryId,
-        );
+    final repo = ref.read(notesRepositoryProvider);
+    final colorId = prefs?.defaultColorId ?? 0;
+
+    if (choice == _CreateChoice.template) {
+      final template = await showTemplatePicker(context);
+      if (template == null || !context.mounted) return;
+      final note = await repo.createFromTemplate(
+        template,
+        colorId: colorId,
+        categoryId: filter.categoryId,
+      );
+      if (!context.mounted) return;
+      context.push(
+        note.type == NoteType.checklist
+            ? Routes.checklist(note.id)
+            : Routes.textNote(note.id),
+      );
+      return;
+    }
+
+    final type =
+        choice == _CreateChoice.checklist ? NoteType.checklist : NoteType.text;
+    final note = await repo.createNote(
+      type: type,
+      colorId: colorId,
+      categoryId: filter.categoryId,
+    );
     if (!context.mounted) return;
     context.push(
-      choice == NoteType.checklist
+      type == NoteType.checklist
           ? Routes.checklist(note.id)
           : Routes.textNote(note.id),
     );
@@ -462,3 +490,5 @@ class _HomeTile extends ConsumerWidget {
     );
   }
 }
+
+enum _CreateChoice { text, checklist, template }

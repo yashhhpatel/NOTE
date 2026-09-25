@@ -100,6 +100,42 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
   late final GeneratedColumn<DateTime> reminderAt = GeneratedColumn<DateTime>(
       'reminder_at', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _formattingMeta =
+      const VerificationMeta('formatting');
+  @override
+  late final GeneratedColumn<String> formatting = GeneratedColumn<String>(
+      'formatting', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _habitModeMeta =
+      const VerificationMeta('habitMode');
+  @override
+  late final GeneratedColumn<bool> habitMode = GeneratedColumn<bool>(
+      'habit_mode', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("habit_mode" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _habitStreakMeta =
+      const VerificationMeta('habitStreak');
+  @override
+  late final GeneratedColumn<int> habitStreak = GeneratedColumn<int>(
+      'habit_streak', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _habitLastCompletedDateMeta =
+      const VerificationMeta('habitLastCompletedDate');
+  @override
+  late final GeneratedColumn<DateTime> habitLastCompletedDate =
+      GeneratedColumn<DateTime>('habit_last_completed_date', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _habitLastResetDateMeta =
+      const VerificationMeta('habitLastResetDate');
+  @override
+  late final GeneratedColumn<DateTime> habitLastResetDate =
+      GeneratedColumn<DateTime>('habit_last_reset_date', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -126,6 +162,11 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         locked,
         categoryId,
         reminderAt,
+        formatting,
+        habitMode,
+        habitStreak,
+        habitLastCompletedDate,
+        habitLastResetDate,
         createdAt,
         modifiedAt
       ];
@@ -189,6 +230,34 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
           reminderAt.isAcceptableOrUnknown(
               data['reminder_at']!, _reminderAtMeta));
     }
+    if (data.containsKey('formatting')) {
+      context.handle(
+          _formattingMeta,
+          formatting.isAcceptableOrUnknown(
+              data['formatting']!, _formattingMeta));
+    }
+    if (data.containsKey('habit_mode')) {
+      context.handle(_habitModeMeta,
+          habitMode.isAcceptableOrUnknown(data['habit_mode']!, _habitModeMeta));
+    }
+    if (data.containsKey('habit_streak')) {
+      context.handle(
+          _habitStreakMeta,
+          habitStreak.isAcceptableOrUnknown(
+              data['habit_streak']!, _habitStreakMeta));
+    }
+    if (data.containsKey('habit_last_completed_date')) {
+      context.handle(
+          _habitLastCompletedDateMeta,
+          habitLastCompletedDate.isAcceptableOrUnknown(
+              data['habit_last_completed_date']!, _habitLastCompletedDateMeta));
+    }
+    if (data.containsKey('habit_last_reset_date')) {
+      context.handle(
+          _habitLastResetDateMeta,
+          habitLastResetDate.isAcceptableOrUnknown(
+              data['habit_last_reset_date']!, _habitLastResetDateMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -236,6 +305,18 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
           .read(DriftSqlType.string, data['${effectivePrefix}category_id']),
       reminderAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}reminder_at']),
+      formatting: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}formatting']),
+      habitMode: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}habit_mode'])!,
+      habitStreak: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}habit_streak'])!,
+      habitLastCompletedDate: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}habit_last_completed_date']),
+      habitLastResetDate: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}habit_last_reset_date']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       modifiedAt: attachedDatabase.typeMapping
@@ -279,6 +360,22 @@ class Note extends DataClass implements Insertable<Note> {
   /// Denormalised next reminder time for cheap calendar/list queries.
   /// The authoritative reminder record lives in [Reminders].
   final DateTime? reminderAt;
+
+  /// JSON-encoded bold/italic/underline ranges over [content].
+  /// See `NoteFormatting` for the shape. Null/empty means unformatted.
+  final String? formatting;
+
+  /// Whether this checklist auto-resets daily and tracks a streak.
+  final bool habitMode;
+
+  /// Consecutive days this habit checklist was fully completed.
+  final int habitStreak;
+
+  /// Date (day-granularity) the checklist was last fully completed.
+  final DateTime? habitLastCompletedDate;
+
+  /// Date (day-granularity) items were last auto-reset for a new day.
+  final DateTime? habitLastResetDate;
   final DateTime createdAt;
   final DateTime modifiedAt;
   const Note(
@@ -294,6 +391,11 @@ class Note extends DataClass implements Insertable<Note> {
       required this.locked,
       this.categoryId,
       this.reminderAt,
+      this.formatting,
+      required this.habitMode,
+      required this.habitStreak,
+      this.habitLastCompletedDate,
+      this.habitLastResetDate,
       required this.createdAt,
       required this.modifiedAt});
   @override
@@ -318,6 +420,18 @@ class Note extends DataClass implements Insertable<Note> {
     }
     if (!nullToAbsent || reminderAt != null) {
       map['reminder_at'] = Variable<DateTime>(reminderAt);
+    }
+    if (!nullToAbsent || formatting != null) {
+      map['formatting'] = Variable<String>(formatting);
+    }
+    map['habit_mode'] = Variable<bool>(habitMode);
+    map['habit_streak'] = Variable<int>(habitStreak);
+    if (!nullToAbsent || habitLastCompletedDate != null) {
+      map['habit_last_completed_date'] =
+          Variable<DateTime>(habitLastCompletedDate);
+    }
+    if (!nullToAbsent || habitLastResetDate != null) {
+      map['habit_last_reset_date'] = Variable<DateTime>(habitLastResetDate);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['modified_at'] = Variable<DateTime>(modifiedAt);
@@ -344,6 +458,17 @@ class Note extends DataClass implements Insertable<Note> {
       reminderAt: reminderAt == null && nullToAbsent
           ? const Value.absent()
           : Value(reminderAt),
+      formatting: formatting == null && nullToAbsent
+          ? const Value.absent()
+          : Value(formatting),
+      habitMode: Value(habitMode),
+      habitStreak: Value(habitStreak),
+      habitLastCompletedDate: habitLastCompletedDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(habitLastCompletedDate),
+      habitLastResetDate: habitLastResetDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(habitLastResetDate),
       createdAt: Value(createdAt),
       modifiedAt: Value(modifiedAt),
     );
@@ -366,6 +491,13 @@ class Note extends DataClass implements Insertable<Note> {
       locked: serializer.fromJson<bool>(json['locked']),
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       reminderAt: serializer.fromJson<DateTime?>(json['reminderAt']),
+      formatting: serializer.fromJson<String?>(json['formatting']),
+      habitMode: serializer.fromJson<bool>(json['habitMode']),
+      habitStreak: serializer.fromJson<int>(json['habitStreak']),
+      habitLastCompletedDate:
+          serializer.fromJson<DateTime?>(json['habitLastCompletedDate']),
+      habitLastResetDate:
+          serializer.fromJson<DateTime?>(json['habitLastResetDate']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       modifiedAt: serializer.fromJson<DateTime>(json['modifiedAt']),
     );
@@ -386,6 +518,12 @@ class Note extends DataClass implements Insertable<Note> {
       'locked': serializer.toJson<bool>(locked),
       'categoryId': serializer.toJson<String?>(categoryId),
       'reminderAt': serializer.toJson<DateTime?>(reminderAt),
+      'formatting': serializer.toJson<String?>(formatting),
+      'habitMode': serializer.toJson<bool>(habitMode),
+      'habitStreak': serializer.toJson<int>(habitStreak),
+      'habitLastCompletedDate':
+          serializer.toJson<DateTime?>(habitLastCompletedDate),
+      'habitLastResetDate': serializer.toJson<DateTime?>(habitLastResetDate),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'modifiedAt': serializer.toJson<DateTime>(modifiedAt),
     };
@@ -404,6 +542,11 @@ class Note extends DataClass implements Insertable<Note> {
           bool? locked,
           Value<String?> categoryId = const Value.absent(),
           Value<DateTime?> reminderAt = const Value.absent(),
+          Value<String?> formatting = const Value.absent(),
+          bool? habitMode,
+          int? habitStreak,
+          Value<DateTime?> habitLastCompletedDate = const Value.absent(),
+          Value<DateTime?> habitLastResetDate = const Value.absent(),
           DateTime? createdAt,
           DateTime? modifiedAt}) =>
       Note(
@@ -419,6 +562,15 @@ class Note extends DataClass implements Insertable<Note> {
         locked: locked ?? this.locked,
         categoryId: categoryId.present ? categoryId.value : this.categoryId,
         reminderAt: reminderAt.present ? reminderAt.value : this.reminderAt,
+        formatting: formatting.present ? formatting.value : this.formatting,
+        habitMode: habitMode ?? this.habitMode,
+        habitStreak: habitStreak ?? this.habitStreak,
+        habitLastCompletedDate: habitLastCompletedDate.present
+            ? habitLastCompletedDate.value
+            : this.habitLastCompletedDate,
+        habitLastResetDate: habitLastResetDate.present
+            ? habitLastResetDate.value
+            : this.habitLastResetDate,
         createdAt: createdAt ?? this.createdAt,
         modifiedAt: modifiedAt ?? this.modifiedAt,
       );
@@ -438,6 +590,17 @@ class Note extends DataClass implements Insertable<Note> {
           data.categoryId.present ? data.categoryId.value : this.categoryId,
       reminderAt:
           data.reminderAt.present ? data.reminderAt.value : this.reminderAt,
+      formatting:
+          data.formatting.present ? data.formatting.value : this.formatting,
+      habitMode: data.habitMode.present ? data.habitMode.value : this.habitMode,
+      habitStreak:
+          data.habitStreak.present ? data.habitStreak.value : this.habitStreak,
+      habitLastCompletedDate: data.habitLastCompletedDate.present
+          ? data.habitLastCompletedDate.value
+          : this.habitLastCompletedDate,
+      habitLastResetDate: data.habitLastResetDate.present
+          ? data.habitLastResetDate.value
+          : this.habitLastResetDate,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       modifiedAt:
           data.modifiedAt.present ? data.modifiedAt.value : this.modifiedAt,
@@ -459,6 +622,11 @@ class Note extends DataClass implements Insertable<Note> {
           ..write('locked: $locked, ')
           ..write('categoryId: $categoryId, ')
           ..write('reminderAt: $reminderAt, ')
+          ..write('formatting: $formatting, ')
+          ..write('habitMode: $habitMode, ')
+          ..write('habitStreak: $habitStreak, ')
+          ..write('habitLastCompletedDate: $habitLastCompletedDate, ')
+          ..write('habitLastResetDate: $habitLastResetDate, ')
           ..write('createdAt: $createdAt, ')
           ..write('modifiedAt: $modifiedAt')
           ..write(')'))
@@ -479,6 +647,11 @@ class Note extends DataClass implements Insertable<Note> {
       locked,
       categoryId,
       reminderAt,
+      formatting,
+      habitMode,
+      habitStreak,
+      habitLastCompletedDate,
+      habitLastResetDate,
       createdAt,
       modifiedAt);
   @override
@@ -497,6 +670,11 @@ class Note extends DataClass implements Insertable<Note> {
           other.locked == this.locked &&
           other.categoryId == this.categoryId &&
           other.reminderAt == this.reminderAt &&
+          other.formatting == this.formatting &&
+          other.habitMode == this.habitMode &&
+          other.habitStreak == this.habitStreak &&
+          other.habitLastCompletedDate == this.habitLastCompletedDate &&
+          other.habitLastResetDate == this.habitLastResetDate &&
           other.createdAt == this.createdAt &&
           other.modifiedAt == this.modifiedAt);
 }
@@ -514,6 +692,11 @@ class NotesCompanion extends UpdateCompanion<Note> {
   final Value<bool> locked;
   final Value<String?> categoryId;
   final Value<DateTime?> reminderAt;
+  final Value<String?> formatting;
+  final Value<bool> habitMode;
+  final Value<int> habitStreak;
+  final Value<DateTime?> habitLastCompletedDate;
+  final Value<DateTime?> habitLastResetDate;
   final Value<DateTime> createdAt;
   final Value<DateTime> modifiedAt;
   final Value<int> rowid;
@@ -530,6 +713,11 @@ class NotesCompanion extends UpdateCompanion<Note> {
     this.locked = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.reminderAt = const Value.absent(),
+    this.formatting = const Value.absent(),
+    this.habitMode = const Value.absent(),
+    this.habitStreak = const Value.absent(),
+    this.habitLastCompletedDate = const Value.absent(),
+    this.habitLastResetDate = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.modifiedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -547,6 +735,11 @@ class NotesCompanion extends UpdateCompanion<Note> {
     this.locked = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.reminderAt = const Value.absent(),
+    this.formatting = const Value.absent(),
+    this.habitMode = const Value.absent(),
+    this.habitStreak = const Value.absent(),
+    this.habitLastCompletedDate = const Value.absent(),
+    this.habitLastResetDate = const Value.absent(),
     required DateTime createdAt,
     required DateTime modifiedAt,
     this.rowid = const Value.absent(),
@@ -566,6 +759,11 @@ class NotesCompanion extends UpdateCompanion<Note> {
     Expression<bool>? locked,
     Expression<String>? categoryId,
     Expression<DateTime>? reminderAt,
+    Expression<String>? formatting,
+    Expression<bool>? habitMode,
+    Expression<int>? habitStreak,
+    Expression<DateTime>? habitLastCompletedDate,
+    Expression<DateTime>? habitLastResetDate,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? modifiedAt,
     Expression<int>? rowid,
@@ -583,6 +781,13 @@ class NotesCompanion extends UpdateCompanion<Note> {
       if (locked != null) 'locked': locked,
       if (categoryId != null) 'category_id': categoryId,
       if (reminderAt != null) 'reminder_at': reminderAt,
+      if (formatting != null) 'formatting': formatting,
+      if (habitMode != null) 'habit_mode': habitMode,
+      if (habitStreak != null) 'habit_streak': habitStreak,
+      if (habitLastCompletedDate != null)
+        'habit_last_completed_date': habitLastCompletedDate,
+      if (habitLastResetDate != null)
+        'habit_last_reset_date': habitLastResetDate,
       if (createdAt != null) 'created_at': createdAt,
       if (modifiedAt != null) 'modified_at': modifiedAt,
       if (rowid != null) 'rowid': rowid,
@@ -602,6 +807,11 @@ class NotesCompanion extends UpdateCompanion<Note> {
       Value<bool>? locked,
       Value<String?>? categoryId,
       Value<DateTime?>? reminderAt,
+      Value<String?>? formatting,
+      Value<bool>? habitMode,
+      Value<int>? habitStreak,
+      Value<DateTime?>? habitLastCompletedDate,
+      Value<DateTime?>? habitLastResetDate,
       Value<DateTime>? createdAt,
       Value<DateTime>? modifiedAt,
       Value<int>? rowid}) {
@@ -618,6 +828,12 @@ class NotesCompanion extends UpdateCompanion<Note> {
       locked: locked ?? this.locked,
       categoryId: categoryId ?? this.categoryId,
       reminderAt: reminderAt ?? this.reminderAt,
+      formatting: formatting ?? this.formatting,
+      habitMode: habitMode ?? this.habitMode,
+      habitStreak: habitStreak ?? this.habitStreak,
+      habitLastCompletedDate:
+          habitLastCompletedDate ?? this.habitLastCompletedDate,
+      habitLastResetDate: habitLastResetDate ?? this.habitLastResetDate,
       createdAt: createdAt ?? this.createdAt,
       modifiedAt: modifiedAt ?? this.modifiedAt,
       rowid: rowid ?? this.rowid,
@@ -663,6 +879,23 @@ class NotesCompanion extends UpdateCompanion<Note> {
     if (reminderAt.present) {
       map['reminder_at'] = Variable<DateTime>(reminderAt.value);
     }
+    if (formatting.present) {
+      map['formatting'] = Variable<String>(formatting.value);
+    }
+    if (habitMode.present) {
+      map['habit_mode'] = Variable<bool>(habitMode.value);
+    }
+    if (habitStreak.present) {
+      map['habit_streak'] = Variable<int>(habitStreak.value);
+    }
+    if (habitLastCompletedDate.present) {
+      map['habit_last_completed_date'] =
+          Variable<DateTime>(habitLastCompletedDate.value);
+    }
+    if (habitLastResetDate.present) {
+      map['habit_last_reset_date'] =
+          Variable<DateTime>(habitLastResetDate.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -690,6 +923,11 @@ class NotesCompanion extends UpdateCompanion<Note> {
           ..write('locked: $locked, ')
           ..write('categoryId: $categoryId, ')
           ..write('reminderAt: $reminderAt, ')
+          ..write('formatting: $formatting, ')
+          ..write('habitMode: $habitMode, ')
+          ..write('habitStreak: $habitStreak, ')
+          ..write('habitLastCompletedDate: $habitLastCompletedDate, ')
+          ..write('habitLastResetDate: $habitLastResetDate, ')
           ..write('createdAt: $createdAt, ')
           ..write('modifiedAt: $modifiedAt, ')
           ..write('rowid: $rowid')
@@ -2379,6 +2617,11 @@ typedef $$NotesTableCreateCompanionBuilder = NotesCompanion Function({
   Value<bool> locked,
   Value<String?> categoryId,
   Value<DateTime?> reminderAt,
+  Value<String?> formatting,
+  Value<bool> habitMode,
+  Value<int> habitStreak,
+  Value<DateTime?> habitLastCompletedDate,
+  Value<DateTime?> habitLastResetDate,
   required DateTime createdAt,
   required DateTime modifiedAt,
   Value<int> rowid,
@@ -2396,6 +2639,11 @@ typedef $$NotesTableUpdateCompanionBuilder = NotesCompanion Function({
   Value<bool> locked,
   Value<String?> categoryId,
   Value<DateTime?> reminderAt,
+  Value<String?> formatting,
+  Value<bool> habitMode,
+  Value<int> habitStreak,
+  Value<DateTime?> habitLastCompletedDate,
+  Value<DateTime?> habitLastResetDate,
   Value<DateTime> createdAt,
   Value<DateTime> modifiedAt,
   Value<int> rowid,
@@ -2430,6 +2678,11 @@ class $$NotesTableTableManager extends RootTableManager<
             Value<bool> locked = const Value.absent(),
             Value<String?> categoryId = const Value.absent(),
             Value<DateTime?> reminderAt = const Value.absent(),
+            Value<String?> formatting = const Value.absent(),
+            Value<bool> habitMode = const Value.absent(),
+            Value<int> habitStreak = const Value.absent(),
+            Value<DateTime?> habitLastCompletedDate = const Value.absent(),
+            Value<DateTime?> habitLastResetDate = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> modifiedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -2447,6 +2700,11 @@ class $$NotesTableTableManager extends RootTableManager<
             locked: locked,
             categoryId: categoryId,
             reminderAt: reminderAt,
+            formatting: formatting,
+            habitMode: habitMode,
+            habitStreak: habitStreak,
+            habitLastCompletedDate: habitLastCompletedDate,
+            habitLastResetDate: habitLastResetDate,
             createdAt: createdAt,
             modifiedAt: modifiedAt,
             rowid: rowid,
@@ -2464,6 +2722,11 @@ class $$NotesTableTableManager extends RootTableManager<
             Value<bool> locked = const Value.absent(),
             Value<String?> categoryId = const Value.absent(),
             Value<DateTime?> reminderAt = const Value.absent(),
+            Value<String?> formatting = const Value.absent(),
+            Value<bool> habitMode = const Value.absent(),
+            Value<int> habitStreak = const Value.absent(),
+            Value<DateTime?> habitLastCompletedDate = const Value.absent(),
+            Value<DateTime?> habitLastResetDate = const Value.absent(),
             required DateTime createdAt,
             required DateTime modifiedAt,
             Value<int> rowid = const Value.absent(),
@@ -2481,6 +2744,11 @@ class $$NotesTableTableManager extends RootTableManager<
             locked: locked,
             categoryId: categoryId,
             reminderAt: reminderAt,
+            formatting: formatting,
+            habitMode: habitMode,
+            habitStreak: habitStreak,
+            habitLastCompletedDate: habitLastCompletedDate,
+            habitLastResetDate: habitLastResetDate,
             createdAt: createdAt,
             modifiedAt: modifiedAt,
             rowid: rowid,
@@ -2550,6 +2818,32 @@ class $$NotesTableFilterComposer
 
   ColumnFilters<DateTime> get reminderAt => $state.composableBuilder(
       column: $state.table.reminderAt,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get formatting => $state.composableBuilder(
+      column: $state.table.formatting,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<bool> get habitMode => $state.composableBuilder(
+      column: $state.table.habitMode,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<int> get habitStreak => $state.composableBuilder(
+      column: $state.table.habitStreak,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<DateTime> get habitLastCompletedDate =>
+      $state.composableBuilder(
+          column: $state.table.habitLastCompletedDate,
+          builder: (column, joinBuilders) =>
+              ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<DateTime> get habitLastResetDate => $state.composableBuilder(
+      column: $state.table.habitLastResetDate,
       builder: (column, joinBuilders) =>
           ColumnFilters(column, joinBuilders: joinBuilders));
 
@@ -2624,6 +2918,32 @@ class $$NotesTableOrderingComposer
 
   ColumnOrderings<DateTime> get reminderAt => $state.composableBuilder(
       column: $state.table.reminderAt,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get formatting => $state.composableBuilder(
+      column: $state.table.formatting,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<bool> get habitMode => $state.composableBuilder(
+      column: $state.table.habitMode,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<int> get habitStreak => $state.composableBuilder(
+      column: $state.table.habitStreak,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<DateTime> get habitLastCompletedDate =>
+      $state.composableBuilder(
+          column: $state.table.habitLastCompletedDate,
+          builder: (column, joinBuilders) =>
+              ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<DateTime> get habitLastResetDate => $state.composableBuilder(
+      column: $state.table.habitLastResetDate,
       builder: (column, joinBuilders) =>
           ColumnOrderings(column, joinBuilders: joinBuilders));
 

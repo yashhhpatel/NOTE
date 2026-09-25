@@ -36,6 +36,22 @@ class Notes extends Table {
   /// The authoritative reminder record lives in [Reminders].
   DateTimeColumn get reminderAt => dateTime().nullable()();
 
+  /// JSON-encoded bold/italic/underline ranges over [content].
+  /// See `NoteFormatting` for the shape. Null/empty means unformatted.
+  TextColumn get formatting => text().nullable()();
+
+  /// Whether this checklist auto-resets daily and tracks a streak.
+  BoolColumn get habitMode => boolean().withDefault(const Constant(false))();
+
+  /// Consecutive days this habit checklist was fully completed.
+  IntColumn get habitStreak => integer().withDefault(const Constant(0))();
+
+  /// Date (day-granularity) the checklist was last fully completed.
+  DateTimeColumn get habitLastCompletedDate => dateTime().nullable()();
+
+  /// Date (day-granularity) items were last auto-reset for a new day.
+  DateTimeColumn get habitLastResetDate => dateTime().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get modifiedAt => dateTime()();
 

@@ -10,6 +10,7 @@ import '../../core/theme/note_colors.dart';
 import '../../data/local/database.dart';
 import '../../shared/utils/snackbars.dart';
 import '../billing/billing_controller.dart';
+import '../../domain/text_formatting.dart';
 import '../../shared/widgets/color_picker_sheet.dart';
 import '../attachments/attachments_providers.dart';
 import '../attachments/attachments_section.dart';
@@ -17,6 +18,8 @@ import '../categories/category_picker_sheet.dart';
 import '../reminders/reminder_sheet.dart';
 import '../settings/settings_providers.dart';
 import 'notes_providers.dart';
+import 'widgets/formatting_toolbar.dart';
+import 'widgets/rich_text_controller.dart';
 
 /// Full-screen editor for a text note with reliable autosave:
 /// debounced while typing, flushed on leave and on app backgrounding.
@@ -31,7 +34,7 @@ class TextNoteEditor extends ConsumerStatefulWidget {
 class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
     with WidgetsBindingObserver {
   final _titleController = TextEditingController();
-  final _contentController = TextEditingController();
+  final _contentController = RichTextEditingController();
   Timer? _debounce;
   bool _initialised = false;
   bool _dirty = false;
@@ -40,6 +43,7 @@ class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _contentController.onFormattingChanged = _onChanged;
   }
 
   @override
@@ -81,6 +85,7 @@ class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
           widget.noteId,
           title: _titleController.text.trim(),
           content: _contentController.text,
+          formatting: _contentController.formatting.encode(),
         );
   }
 
@@ -121,7 +126,8 @@ class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
         }
         if (!_initialised) {
           _titleController.text = note.title;
-          _contentController.text = note.content;
+          _contentController.setInitialContent(
+              note.content, NoteFormatting.decode(note.formatting));
           _initialised = true;
         }
         return _buildScaffold(context, note);
@@ -217,6 +223,7 @@ class _TextNoteEditorState extends ConsumerState<TextNoteEditor>
                   ),
                   maxLines: null,
                 ),
+                FormattingToolbar(controller: _contentController),
                 Expanded(
                   child: SingleChildScrollView(
                     child: Column(

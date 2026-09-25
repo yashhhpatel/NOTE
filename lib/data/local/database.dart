@@ -33,7 +33,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   // Store timestamps as ISO-8601 text: millisecond precision (accurate
   // modified-ordering) and timezone-safe. Chosen up front so no data migration
@@ -47,6 +47,16 @@ class AppDatabase extends _$AppDatabase {
         onCreate: (m) async {
           await m.createAll();
           await _createIndexes();
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            // Rich-text formatting + habit-tracker checklist mode.
+            await m.addColumn(notes, notes.formatting);
+            await m.addColumn(notes, notes.habitMode);
+            await m.addColumn(notes, notes.habitStreak);
+            await m.addColumn(notes, notes.habitLastCompletedDate);
+            await m.addColumn(notes, notes.habitLastResetDate);
+          }
         },
         beforeOpen: (details) async {
           // Enforce foreign keys and reasonable durability.

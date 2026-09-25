@@ -3,6 +3,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/enums.dart';
 import '../../domain/entities/note_card.dart';
+import '../../domain/habit_tracking.dart';
+import '../../domain/note_templates.dart';
 import '../local/database.dart';
 
 /// All persistence operations for notes and their checklist items.
@@ -178,18 +180,45 @@ class NotesRepository {
   }
 
   /// Persists edits to a text note's title/content and bumps [modifiedAt].
+  /// [formatting] is the JSON-encoded bold/italic/underline ranges (see
+  /// `NoteFormatting`); pass null to leave it unchanged.
   Future<void> saveContent(
     String id, {
     required String title,
     required String content,
+    String? formatting,
   }) async {
     await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
       NotesCompanion(
         title: Value(title),
         content: Value(content),
+        formatting:
+            formatting == null ? const Value.absent() : Value(formatting),
         modifiedAt: Value(DateTime.now()),
       ),
     );
+  }
+
+  /// Creates a note pre-filled from a built-in [NoteTemplate].
+  Future<Note> createFromTemplate(
+    NoteTemplate template, {
+    int colorId = 0,
+    String? categoryId,
+  }) async {
+    final note = await createNote(
+      type: template.type,
+      colorId: colorId,
+      categoryId: categoryId,
+    );
+    if (template.type == NoteType.checklist) {
+      for (final label in template.items) {
+        await addItem(note.id, label: label);
+      }
+      await saveTitle(note.id, template.title);
+    } else {
+      await saveContent(note.id, title: template.title, content: template.content);
+    }
+    return (await getNote(note.id))!;
   }
 
   /// Persists just the title (used by the checklist editor).
@@ -460,6 +489,79 @@ class NotesRepository {
     await (_db.update(_db.checklistItems)..where((t) => t.id.equals(itemId)))
         .write(ChecklistItemsCompanion(checked: Value(checked)));
     await _touchNote(noteId);
+    await _maybeAdvanceHabitStreak(noteId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Habit-mode checklists (auto-reset + streak)
+  // ---------------------------------------------------------------------------
+
+  Future<void> setHabitMode(String noteId, bool enabled) async {
+    final now = DateTime.now();
+    await (_db.update(_db.notes)..where((t) => t.id.equals(noteId))).write(
+      NotesCompanion(
+        habitMode: Value(enabled),
+        habitStreak: const Value(0),
+        habitLastCompletedDate: const Value(null),
+        // Seed today's reset date so enabling mid-day doesn't immediately
+        // look like a missed day next time the note is opened.
+        habitLastResetDate: Value(enabled ? now : null),
+        modifiedAt: Value(now),
+      ),
+    );
+  }
+
+  /// After a checklist item is checked/unchecked, updates the habit streak if
+  /// this note is in habit mode and all items are now checked.
+  Future<void> _maybeAdvanceHabitStreak(String noteId) async {
+    final note = await getNote(noteId);
+    if (note == null || !note.habitMode) return;
+    final items = await (_db.select(_db.checklistItems)
+          ..where((t) => t.noteId.equals(noteId)))
+        .get();
+    final allChecked = items.isNotEmpty && items.every((i) => i.checked);
+    final update = HabitTracking.onItemsChanged(
+      allChecked: allChecked,
+      now: DateTime.now(),
+      currentStreak: note.habitStreak,
+      lastCompletedDate: note.habitLastCompletedDate,
+    );
+    if (update == null) return;
+    await (_db.update(_db.notes)..where((t) => t.id.equals(noteId))).write(
+      NotesCompanion(
+        habitStreak: Value(update.streak),
+        habitLastCompletedDate: Value(update.lastCompletedDate),
+      ),
+    );
+  }
+
+  /// Called when a habit-mode checklist is opened. If a new calendar day has
+  /// started, unchecks all items and updates the streak (breaking it if a day
+  /// was missed). No-ops for non-habit notes or if already reset today.
+  Future<void> checkHabitReset(String noteId) async {
+    final note = await getNote(noteId);
+    if (note == null || !note.habitMode) return;
+    final result = HabitTracking.resetIfNewDay(
+      now: DateTime.now(),
+      lastResetDate: note.habitLastResetDate,
+      lastCompletedDate: note.habitLastCompletedDate,
+      currentStreak: note.habitStreak,
+    );
+    if (result == null) return;
+
+    await _db.transaction(() async {
+      if (result.shouldUncheckItems) {
+        await (_db.update(_db.checklistItems)
+              ..where((t) => t.noteId.equals(noteId)))
+            .write(const ChecklistItemsCompanion(checked: Value(false)));
+      }
+      await (_db.update(_db.notes)..where((t) => t.id.equals(noteId))).write(
+        NotesCompanion(
+          habitStreak: Value(result.streak),
+          habitLastResetDate: Value(result.resetDate),
+        ),
+      );
+    });
   }
 
   Future<void> deleteItem(String itemId, String noteId) async {
